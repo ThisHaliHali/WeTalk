@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>切换测试</title>
+    <style>
+        .hidden {
+            display: none !important;
+        }
+        
+        .toolbar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+        
+        .mode-toggle-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+        }
+        
+        .input-area {
+            display: flex;
+            align-items: center;
+        }
+        
+        .record-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        
+        .text-input-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .text-input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            width: 200px;
+        }
+        
+        .send-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>切换功能测试</h1>
+    <p>点击下方的切换按钮测试语音/文字模式切换</p>
+    
+    <div class="toolbar">
+        <button id="modeToggleBtn" class="mode-toggle-btn">
+            <span class="toggle-icon">⌨️</span>
+        </button>
+        
+        <div id="inputArea" class="input-area">
+            <!-- 语音模式 -->
+            <button id="recordBtn" class="record-btn">
+                🎤 按住说话
+            </button>
+            
+            <!-- 文字模式 -->
+            <div id="textInputContainer" class="text-input-container hidden">
+                <input type="text" id="textInput" placeholder="输入文字..." class="text-input">
+                <button id="sendTextBtn" class="send-btn">📤</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isVoiceMode = true;
+        
+        function toggleInputMode() {
+            console.log('切换前模式:', isVoiceMode ? '语音模式' : '文字模式');
+            
+            isVoiceMode = !isVoiceMode;
+            
+            const recordBtn = document.getElementById('recordBtn');
+            const textInputContainer = document.getElementById('textInputContainer');
+            const toggleIcon = document.querySelector('.toggle-icon');
+            
+            console.log('recordBtn:', recordBtn);
+            console.log('textInputContainer:', textInputContainer);
+            console.log('toggleIcon:', toggleIcon);
+            
+            if (isVoiceMode) {
+                // 切换到语音模式
+                recordBtn.classList.remove('hidden');
+                textInputContainer.classList.add('hidden');
+                toggleIcon.textContent = '⌨️';
+                console.log('切换到语音模式');
+            } else {
+                // 切换到文字模式
+                recordBtn.classList.add('hidden');
+                textInputContainer.classList.remove('hidden');
+                toggleIcon.textContent = '🎤';
+                console.log('切换到文字模式');
+                
+                setTimeout(() => {
+                    document.getElementById('textInput').focus();
+                }, 100);
+            }
+            
+            console.log('切换后模式:', isVoiceMode ? '语音模式' : '文字模式');
+        }
+        
+        document.getElementById('modeToggleBtn').addEventListener('click', toggleInputMode);
+    </script>
+</body>
+</html> 

@@ -1,0 +1,778 @@
+/* 重置样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 根变量 */
+:root {
+    --primary-color: #007AFF;
+    --secondary-color: #F2F2F7;
+    --text-color: #000000;
+    --text-secondary: #8E8E93;
+    --background-color: #FFFFFF;
+    --border-color: #C6C6C8;
+    --success-color: #34C759;
+    --danger-color: #FF3B30;
+    --warning-color: #FF9500;
+    
+    --border-radius: 12px;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    --transition: all 0.3s ease;
+}
+
+/* 基础样式 */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+/* 主容器 */
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 768px;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* 头部 */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: var(--background-color);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.settings-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.settings-btn:hover {
+    background-color: var(--secondary-color);
+}
+
+/* 聊天容器 */
+.chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: #F8F9FA;
+    /* 为底部工具栏预留空间 */
+    margin-bottom: 82px; /* 工具栏高度 + 边距 */
+    /* 改善滚动体验 */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    /* 确保容器可以滚动到底部 */
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    /* 让消息从底部开始排列 */
+    justify-content: flex-end;
+    /* 移除min-height限制，让内容自然撑开 */
+    /* 确保最后一条消息有足够的底部空间 */
+    padding-bottom: 1rem;
+}
+
+/* 欢迎消息 */
+.welcome-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    /* 确保欢迎消息在底部显示 */
+    margin-top: auto;
+}
+
+.welcome-message p {
+    margin-bottom: 0.5rem;
+}
+
+/* 消息样式 */
+.message {
+    max-width: 80%;
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 0.5rem;
+    word-wrap: break-word;
+    animation: fadeInUp 0.3s ease;
+}
+
+.message.user {
+    background-color: var(--primary-color);
+    color: white;
+    align-self: flex-end;
+    margin-left: auto;
+}
+
+.message.assistant {
+    background-color: white;
+    color: var(--text-color);
+    align-self: flex-start;
+    border: 1px solid var(--border-color);
+}
+
+.message-content {
+    line-height: 1.4;
+}
+
+/* Loading状态样式 */
+.message.loading {
+    opacity: 0.8;
+}
+
+.loading-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.dots {
+    display: inline-block;
+    animation: loadingDots 1.5s infinite;
+}
+
+@keyframes loadingDots {
+    0%, 20% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* 时间分隔符 */
+.time-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 1.5rem 0 1rem 0;
+    position: relative;
+}
+
+.time-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: var(--border-color);
+    z-index: 1;
+}
+
+.time-text {
+    background-color: #F8F9FA;
+    color: var(--text-secondary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    position: relative;
+    z-index: 2;
+}
+
+/* 底部工具栏 */
+.toolbar {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 768px;
+    background-color: var(--background-color);
+    border-top: 1px solid var(--border-color);
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* 模式切换按钮 */
+.mode-toggle-btn {
+    background-color: var(--secondary-color);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+    flex-shrink: 0;
+}
+
+.mode-toggle-btn:hover {
+    background-color: var(--primary-color);
+    color: white;
+    transform: scale(1.05);
+}
+
+.mode-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+.toggle-icon {
+    font-size: 1.5rem;
+}
+
+/* 输入区域 */
+.input-area {
+    flex: 1;
+    position: relative;
+}
+
+/* 语音模式按钮 */
+.record-btn {
+    width: 100%;
+    height: 50px;
+    background: linear-gradient(135deg, var(--primary-color), #0056CC);
+    border: none;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: white;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow);
+    position: relative;
+}
+
+.record-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+}
+
+.record-btn:active {
+    transform: translateY(0);
+}
+
+.record-btn.recording {
+    background: linear-gradient(135deg, var(--danger-color), #CC0000);
+    animation: pulse 1s infinite;
+}
+
+.record-icon {
+    font-size: 1.2rem;
+}
+
+.record-text {
+    font-size: 0.9rem;
+}
+
+/* 文字输入容器 */
+.text-input-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 50px;
+    transition: all 0.3s ease;
+}
+
+.text-input {
+    flex: 1;
+    height: 100%;
+    padding: 0 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 25px;
+    font-size: 1rem;
+    outline: none;
+    transition: var(--transition);
+    background-color: var(--background-color);
+}
+
+.text-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.send-btn {
+    width: 50px;
+    height: 50px;
+    background-color: var(--primary-color);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    font-size: 1.2rem;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+    flex-shrink: 0;
+}
+
+.send-btn:hover {
+    background-color: #0056CC;
+    transform: scale(1.05);
+}
+
+.send-btn:active {
+    transform: scale(0.95);
+}
+
+.send-btn:disabled {
+    background-color: var(--secondary-color);
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 模式切换动画 */
+.voice-mode.hidden,
+.text-mode.hidden {
+    display: none !important;
+}
+
+/* 工具按钮（保留用于设置按钮） */
+.tool-btn {
+    background-color: var(--secondary-color);
+    border: none;
+    border-radius: 12px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    transition: var(--transition);
+    min-width: 60px;
+    font-size: 0.8rem;
+    color: var(--text-color);
+}
+
+.tool-btn:hover {
+    background-color: var(--primary-color);
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* 录音覆盖层 */
+.recording-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+}
+
+.recording-content {
+    text-align: center;
+    color: white;
+}
+
+.recording-status {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    color: var(--danger-color);
+}
+
+.recording-animation {
+    margin-bottom: 2rem;
+}
+
+.mic-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.sound-waves {
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.sound-waves span {
+    width: 4px;
+    height: 20px;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+    animation: soundWave 1s infinite ease-in-out;
+}
+
+.sound-waves span:nth-child(2) { animation-delay: 0.1s; }
+.sound-waves span:nth-child(3) { animation-delay: 0.2s; }
+.sound-waves span:nth-child(4) { animation-delay: 0.3s; }
+.sound-waves span:nth-child(5) { animation-delay: 0.4s; }
+
+.recording-hint {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* 设置面板 */
+.settings-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.settings-content {
+    background-color: var(--background-color);
+    border-radius: var(--border-radius);
+    width: 100%;
+    max-width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-header h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.close-btn:hover {
+    background-color: var(--secondary-color);
+}
+
+.settings-body {
+    padding: 1rem;
+}
+
+.setting-item {
+    margin-bottom: 1.5rem;
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.setting-item input,
+.setting-item select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.api-key-container {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.api-key-container input {
+    flex: 1;
+    margin: 0;
+}
+
+.validate-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    white-space: nowrap;
+    min-width: 60px;
+}
+
+.validate-btn:hover {
+    background-color: #0056CC;
+}
+
+.validate-btn:disabled {
+    background-color: var(--text-secondary);
+    cursor: not-allowed;
+}
+
+.validate-btn.validating {
+    background-color: var(--warning-color);
+}
+
+.api-key-status {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.api-key-status.success {
+    background-color: rgba(52, 199, 89, 0.1);
+    color: var(--success-color);
+    border: 1px solid rgba(52, 199, 89, 0.3);
+}
+
+.api-key-status.error {
+    background-color: rgba(255, 59, 48, 0.1);
+    color: var(--danger-color);
+    border: 1px solid rgba(255, 59, 48, 0.3);
+}
+
+.api-key-status.validating {
+    background-color: rgba(255, 149, 0, 0.1);
+    color: var(--warning-color);
+    border: 1px solid rgba(255, 149, 0, 0.3);
+}
+
+.setting-item input:focus,
+.setting-item select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.setting-item small {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.danger-btn {
+    background-color: var(--danger-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: var(--transition);
+    width: 100%;
+}
+
+.danger-btn:hover {
+    background-color: #D70015;
+}
+
+/* 加载覆盖层 */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-content {
+    text-align: center;
+    color: white;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+.loading-text {
+    font-size: 1rem;
+}
+
+/* 错误提示 */
+.error-toast {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    background-color: var(--danger-color);
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    z-index: 1001;
+    animation: slideDown 0.3s ease;
+}
+
+/* 工具类 */
+.hidden {
+    display: none !important;
+}
+
+/* 动画 */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+@keyframes soundWave {
+    0%, 100% {
+        height: 20px;
+    }
+    50% {
+        height: 40px;
+    }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes keyboardPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.7;
+    }
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+    .header {
+        padding: 0.75rem;
+    }
+    
+    .header h1 {
+        font-size: 1.25rem;
+    }
+    
+    .chat-container {
+        padding: 0.75rem;
+        margin-bottom: 78px; /* 调整小屏幕的底部间距 */
+    }
+    
+    .message {
+        max-width: 85%;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .toolbar {
+        padding: 0.75rem;
+    }
+    
+    .record-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+    
+    .tool-btn {
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 320px) {
+    .message {
+        max-width: 90%;
+        font-size: 0.9rem;
+    }
+    
+    .tool-btn span:last-child {
+        display: none;
+    }
+}
+
+/* 隐藏状态 */
+.record-btn.hidden {
+    display: none !important;
+}
+
+.text-input-container.hidden {
+    display: none !important;
+} 

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="WeTalk - 中日语音翻译助手">
+    <title>WeTalk</title>
+    
+    <!-- PWA配置 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007AFF">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="WeTalk">
+    
+    <!-- 图标 -->
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    
+    <!-- 样式 -->
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <!-- 主容器 -->
+    <div id="app">
+        <!-- 头部 -->
+        <header class="header">
+            <h1>WeTalk</h1>
+            <button id="settingsBtn" class="settings-btn">⚙️</button>
+        </header>
+
+        <!-- 聊天区域 -->
+        <main class="chat-container" id="chatContainer">
+            <div class="chat-messages" id="chatMessages">
+                <!-- 欢迎消息 -->
+                <div class="welcome-message">
+                    <p>欢迎使用WeTalk！</p>
+                    <p>🎤 长按说话按钮开始录音</p>
+                    <p>⌨️ 点击左侧按钮切换文字输入</p>
+                    <p>💻 电脑端：长按空格键录音，松开发送，ESC取消</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- 底部工具栏 -->
+        <footer class="toolbar">
+            <button id="modeToggleBtn" class="mode-toggle-btn">
+                <span class="toggle-icon">⌨️</span>
+            </button>
+            
+            <div id="inputArea" class="input-area">
+                <!-- 语音模式 -->
+                <button id="recordBtn" class="record-btn voice-mode">
+                    <span class="record-icon">🎤</span>
+                    <span class="record-text">按住说话</span>
+                </button>
+                
+                <!-- 文字模式 -->
+                <div id="textInputContainer" class="text-input-container text-mode hidden">
+                    <input type="text" id="textInput" placeholder="输入要翻译的文字..." class="text-input">
+                    <button id="sendTextBtn" class="send-btn">
+                        <span>📤</span>
+                    </button>
+                </div>
+            </div>
+        </footer>
+
+        <!-- 录音状态覆盖层 -->
+        <div id="recordingOverlay" class="recording-overlay hidden">
+            <div class="recording-content">
+                <div class="recording-status">🔴 录音中...</div>
+                <div class="recording-animation">
+                    <div class="mic-icon">🎤</div>
+                    <div class="sound-waves">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+                <div class="recording-hint">释放发送 | 上滑取消</div>
+            </div>
+        </div>
+
+        <!-- 设置面板 -->
+        <div id="settingsPanel" class="settings-panel hidden">
+            <div class="settings-content">
+                <div class="settings-header">
+                    <h2>设置</h2>
+                    <button id="closeSettings" class="close-btn">✕</button>
+                </div>
+                
+                <div class="settings-body">
+                    <div class="setting-item">
+                        <label for="apiKey">OpenAI API密钥</label>
+                        <div class="api-key-container">
+                            <input type="password" id="apiKey" placeholder="请输入您的API密钥">
+                            <button id="validateApiKey" class="validate-btn">验证</button>
+                        </div>
+                        <div id="apiKeyStatus" class="api-key-status hidden"></div>
+                        <small>密钥仅存储在本地，不会上传到服务器</small>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label for="language">默认语言</label>
+                        <select id="language">
+                            <option value="auto">自动检测</option>
+                            <option value="zh">中文</option>
+                            <option value="ja">日语</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <button id="clearData" class="danger-btn">清除所有数据</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <div class="loading-text">处理中...</div>
+            </div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div id="errorToast" class="error-toast hidden">
+            <span id="errorMessage"></span>
+        </div>
+    </div>
+
+    <!-- 脚本 -->
+    <script src="scripts/app.js"></script>
+    <script>
+        // 注册Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html> 

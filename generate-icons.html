@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图标生成器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .icon-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .icon-item {
+            text-align: center;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .icon-item img {
+            display: block;
+            margin: 0 auto 10px;
+            border: 1px solid #eee;
+        }
+        button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056CC;
+        }
+        #svgContainer {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>WeTalk 图标生成器</h1>
+    <p>这个工具可以从SVG生成不同尺寸的PNG图标文件。</p>
+    
+    <button onclick="generateIcons()">生成所有图标</button>
+    <button onclick="downloadAll()">下载所有图标</button>
+    
+    <div class="icon-preview" id="iconPreview"></div>
+    
+    <div id="svgContainer"></div>
+
+    <script>
+        const iconSizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        const svgContent = `<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="256" cy="256" r="240" fill="#007AFF" stroke="#ffffff" stroke-width="8"/>
+  <g transform="translate(256, 256)">
+    <rect x="-30" y="-80" width="60" height="100" rx="30" fill="#ffffff"/>
+    <path d="M -50 40 Q -50 60 -30 60 L 30 60 Q 50 60 50 40" stroke="#ffffff" stroke-width="8" fill="none"/>
+    <line x1="0" y1="60" x2="0" y2="90" stroke="#ffffff" stroke-width="8"/>
+    <line x1="-25" y1="90" x2="25" y2="90" stroke="#ffffff" stroke-width="8"/>
+    <g stroke="#ffffff" stroke-width="6" fill="none" opacity="0.8">
+      <path d="M -80 -20 Q -100 0 -80 20"/>
+      <path d="M -100 -30 Q -130 0 -100 30"/>
+      <path d="M 80 -20 Q 100 0 80 20"/>
+      <path d="M 100 -30 Q 130 0 100 30"/>
+    </g>
+  </g>
+  <g transform="translate(256, 380)" fill="#ffffff" font-family="Arial, sans-serif" font-size="36" text-anchor="middle">
+    <text x="-40" y="0">中</text>
+    <text x="0" y="0">⇄</text>
+    <text x="40" y="0">日</text>
+  </g>
+</svg>`;
+
+        let generatedIcons = {};
+
+        function generateIcons() {
+            const preview = document.getElementById('iconPreview');
+            preview.innerHTML = '';
+            generatedIcons = {};
+
+            iconSizes.forEach(size => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = size;
+                canvas.height = size;
+
+                const img = new Image();
+                const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(svgBlob);
+
+                img.onload = function() {
+                    ctx.drawImage(img, 0, 0, size, size);
+                    
+                    canvas.toBlob(function(blob) {
+                        const iconUrl = URL.createObjectURL(blob);
+                        generatedIcons[size] = blob;
+                        
+                        // 创建预览
+                        const iconItem = document.createElement('div');
+                        iconItem.className = 'icon-item';
+                        iconItem.innerHTML = `
+                            <img src="${iconUrl}" width="64" height="64" alt="Icon ${size}x${size}">
+                            <div>${size}x${size}</div>
+                            <button onclick="downloadIcon(${size})">下载</button>
+                        `;
+                        preview.appendChild(iconItem);
+                    }, 'image/png');
+                    
+                    URL.revokeObjectURL(url);
+                };
+
+                img.src = url;
+            });
+        }
+
+        function downloadIcon(size) {
+            if (generatedIcons[size]) {
+                const url = URL.createObjectURL(generatedIcons[size]);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        function downloadAll() {
+            Object.keys(generatedIcons).forEach(size => {
+                setTimeout(() => downloadIcon(parseInt(size)), parseInt(size) * 10);
+            });
+        }
+
+        // 页面加载时自动生成图标
+        window.addEventListener('load', generateIcons);
+    </script>
+</body>
+</html> 
