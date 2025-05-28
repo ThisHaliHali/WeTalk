@@ -841,6 +841,11 @@ body {
         font-size: 1.25rem;
     }
     
+    /* 移动端隐藏TTS自动播放按钮 */
+    .tts-toggle-btn {
+        display: none;
+    }
+    
     .chat-container {
         padding: 0.75rem;
         margin-bottom: 105px; /* 调整小屏幕的底部间距 */

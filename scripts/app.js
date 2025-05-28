@@ -57,8 +57,6 @@ class WeTalk {
             
             if (permissionStatus === 'granted') {
                 console.log('录音权限已授权');
-                // 即使录音权限已授权，也要初始化音频上下文以获取播放权限
-                await this.initializeAudioContext();
                 this.showPermissionStatus('🎤 录音权限已就绪，可以开始使用语音翻译', 'success');
                 return;
             }
@@ -66,8 +64,6 @@ class WeTalk {
             if (permissionStatus === 'denied') {
                 console.log('录音权限被拒绝');
                 this.showPermissionStatus('⚠️ 录音权限被拒绝，请在浏览器设置中允许麦克风访问', 'error');
-                // 即使录音权限被拒绝，也尝试初始化音频上下文以获取播放权限
-                await this.initializeAudioContext();
                 return;
             }
             
@@ -75,123 +71,13 @@ class WeTalk {
             await this.audioRecorder.initializeAudio();
             console.log('录音权限测试成功');
             
-            // 初始化音频上下文以获取播放权限
-            await this.initializeAudioContext();
-            
             // 显示成功提示
-            this.showPermissionStatus('🎤🔊 录音和播放权限已获取，可以开始使用语音翻译', 'success');
+            this.showPermissionStatus('🎤 录音权限已获取，可以开始使用语音翻译', 'success');
         } catch (error) {
             console.error('录音权限处理失败:', error);
             
-            // 即使录音权限失败，也尝试初始化音频上下文
-            try {
-                await this.initializeAudioContext();
-                this.showPermissionStatus('⚠️ 录音权限获取失败，但音频播放已就绪。首次录音时会再次申请权限', 'warning');
-            } catch (audioError) {
-                console.error('音频上下文初始化失败:', audioError);
-                this.showPermissionStatus('⚠️ 音频权限获取失败，首次录音时会再次申请权限', 'warning');
-            }
-        }
-    }
-
-    async initializeAudioContext() {
-        try {
-            console.log('开始初始化音频上下文...');
-            
-            // 创建音频上下文
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) {
-                throw new Error('浏览器不支持Web Audio API');
-            }
-            
-            const audioContext = new AudioContext();
-            
-            // 如果音频上下文处于suspended状态，需要用户交互来激活
-            if (audioContext.state === 'suspended') {
-                console.log('音频上下文处于suspended状态，等待用户交互激活');
-                
-                // 显示等待用户交互的提示
-                this.showPermissionStatus('🎤🔊 权限已获取，请点击任意位置激活音频播放功能', 'warning');
-                
-                // 创建一个临时的用户交互监听器
-                const activateAudio = async () => {
-                    try {
-                        await audioContext.resume();
-                        console.log('音频上下文已激活');
-                        
-                        // 播放一个静音音频来确保播放权限
-                        await this.playTestAudio(audioContext);
-                        
-                        // 移除事件监听器
-                        document.removeEventListener('click', activateAudio);
-                        document.removeEventListener('touchstart', activateAudio);
-                        
-                        // 更新权限状态提示
-                        this.updatePermissionStatusForAudio();
-                    } catch (error) {
-                        console.error('音频上下文激活失败:', error);
-                    }
-                };
-                
-                // 添加事件监听器，等待用户交互
-                document.addEventListener('click', activateAudio, { once: true });
-                document.addEventListener('touchstart', activateAudio, { once: true });
-                
-                console.log('已添加用户交互监听器，等待激活音频上下文');
-            } else {
-                // 音频上下文已经是running状态
-                console.log('音频上下文已激活');
-                await this.playTestAudio(audioContext);
-            }
-            
-            // 保存音频上下文引用供后续使用
-            this.audioContext = audioContext;
-            
-            // 将音频上下文保存到全局变量，供TTSManager使用
-            if (!window.wetalk) {
-                window.wetalk = {};
-            }
-            window.wetalk.audioContext = audioContext;
-            
-        } catch (error) {
-            console.error('音频上下文初始化失败:', error);
-            throw error;
-        }
-    }
-
-    async playTestAudio(audioContext) {
-        try {
-            console.log('播放测试音频以确保播放权限...');
-            
-            // 创建一个极短的静音音频
-            const buffer = audioContext.createBuffer(1, 1, 22050);
-            const source = audioContext.createBufferSource();
-            source.buffer = buffer;
-            source.connect(audioContext.destination);
-            source.start();
-            
-            console.log('测试音频播放成功');
-        } catch (error) {
-            console.error('测试音频播放失败:', error);
-            throw error;
-        }
-    }
-
-    updatePermissionStatusForAudio() {
-        const statusDiv = document.getElementById('permissionStatus');
-        if (statusDiv) {
-            const span = statusDiv.querySelector('span');
-            if (span && (span.textContent.includes('请点击任意位置激活') || span.textContent.includes('等待用户交互激活'))) {
-                span.textContent = '🎤🔊 录音和播放权限已就绪，可以开始使用语音翻译';
-                statusDiv.className = 'permission-status success';
-                
-                // 3秒后自动隐藏
-                setTimeout(() => {
-                    if (statusDiv.parentElement) {
-                        statusDiv.remove();
-                    }
-                }, 3000);
-            }
+            // 显示权限获取失败的提示
+            this.showPermissionStatus('⚠️ 录音权限获取失败，首次录音时会再次申请权限', 'warning');
         }
     }
 
@@ -1338,7 +1224,7 @@ class TTSManager {
     }
 
     init() {
-        // 从localStorage加载TTS设置
+        // 从localStorage加载TTS设置，默认为false（不自动播放）
         const savedTTSEnabled = localStorage.getItem('wetalk_tts_enabled');
         this.isEnabled = savedTTSEnabled === 'true';
         
@@ -1403,15 +1289,6 @@ class TTSManager {
             const audioUrl = URL.createObjectURL(audioBlob);
             this.currentAudio = new Audio(audioUrl);
             
-            // 如果有预初始化的音频上下文，使用它来确保播放权限
-            if (window.wetalk && window.wetalk.audioContext) {
-                console.log('使用预初始化的音频上下文');
-                // 确保音频上下文处于running状态
-                if (window.wetalk.audioContext.state === 'suspended') {
-                    await window.wetalk.audioContext.resume();
-                }
-            }
-            
             this.currentAudio.onloadeddata = () => {
                 this.setLoadingState(false);
             };
@@ -1440,29 +1317,7 @@ class TTSManager {
                 console.error('音频播放失败');
             };
 
-            // 尝试播放音频
-            try {
-                await this.currentAudio.play();
-            } catch (playError) {
-                console.warn('直接播放失败，可能需要用户交互:', playError);
-                
-                // 如果播放失败，添加用户交互监听器
-                const playOnInteraction = async () => {
-                    try {
-                        await this.currentAudio.play();
-                        document.removeEventListener('click', playOnInteraction);
-                        document.removeEventListener('touchstart', playOnInteraction);
-                    } catch (error) {
-                        console.error('用户交互后播放仍然失败:', error);
-                    }
-                };
-                
-                document.addEventListener('click', playOnInteraction, { once: true });
-                document.addEventListener('touchstart', playOnInteraction, { once: true });
-                
-                // 显示提示信息
-                console.log('已添加用户交互监听器，等待用户操作后播放');
-            }
+            await this.currentAudio.play();
 
         } catch (error) {
             this.setLoadingState(false);
