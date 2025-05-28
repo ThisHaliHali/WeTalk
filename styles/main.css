@@ -115,7 +115,7 @@ body {
     padding: 1rem;
     background-color: #F8F9FA;
     /* 为底部工具栏预留空间 */
-    margin-bottom: 82px; /* 工具栏高度 + 边距 */
+    margin-bottom: 110px; /* 工具栏高度 + 边距 */
     /* 改善滚动体验 */
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
@@ -158,7 +158,7 @@ body {
     animation: fadeInUp 0.3s ease;
     position: relative;
     display: flex;
-    align-items: flex-start;
+    flex-direction: column;
     gap: 0.5rem;
 }
 
@@ -167,7 +167,6 @@ body {
     color: white;
     align-self: flex-end;
     margin-left: auto;
-    flex-direction: row-reverse;
 }
 
 .message.assistant {
@@ -182,37 +181,47 @@ body {
     flex: 1;
 }
 
+.message-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 0.25rem;
+}
+
 .play-tts-btn {
-    background: none;
+    background-color: var(--secondary-color);
     border: none;
     cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
     transition: var(--transition);
-    font-size: 0.9rem;
-    opacity: 0.7;
-    flex-shrink: 0;
-    margin-top: 0.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .play-tts-btn:hover {
-    opacity: 1;
-    background-color: rgba(0, 122, 255, 0.1);
-    transform: scale(1.1);
+    background-color: var(--secondary-color);
+    transform: scale(1.05);
 }
 
 .play-tts-btn.playing {
-    opacity: 1;
-    color: var(--primary-color);
+    background-color: var(--secondary-color);
 }
 
 .play-tts-btn.loading {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
+    transform: none;
 }
 
 .play-icon {
     display: inline-block;
+    font-size: 0.9rem;
+}
+
+.play-text {
+    display: none;
 }
 
 /* Loading状态样式 */
@@ -284,7 +293,7 @@ body {
     max-width: 768px;
     background-color: var(--background-color);
     border-top: 1px solid var(--border-color);
-    padding: 1rem;
+    padding: 1.5rem 1rem 2rem 1rem;
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -834,7 +843,7 @@ body {
     
     .chat-container {
         padding: 0.75rem;
-        margin-bottom: 78px; /* 调整小屏幕的底部间距 */
+        margin-bottom: 105px; /* 调整小屏幕的底部间距 */
     }
     
     .message {
@@ -843,7 +852,7 @@ body {
     }
     
     .toolbar {
-        padding: 0.75rem;
+        padding: 1.25rem 0.75rem 1.75rem 0.75rem;
     }
     
     /* 使用更强的选择器确保录音按钮保持扁长形 */
