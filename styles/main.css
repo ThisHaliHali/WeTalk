@@ -746,11 +746,13 @@ body {
         padding: 0.75rem;
     }
     
-    .record-btn {
-        /* 保持扁长形，不要变成正方形 */
-        height: 48px;
-        font-size: 0.9rem;
-        /* width保持100%，不要设置固定宽度 */
+    /* 使用更强的选择器确保录音按钮保持扁长形 */
+    .input-area .record-btn.voice-mode {
+        width: 100% !important;
+        height: 48px !important;
+        font-size: 0.9rem !important;
+        border-radius: 24px !important;
+        min-width: auto !important;
     }
     
     .tool-btn {
