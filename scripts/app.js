@@ -28,6 +28,9 @@ class WeTalk {
         this.bindEvents();
         console.log('事件绑定完成');
         
+        // 预申请录音权限
+        await this.initializeAudioPermission();
+        
         // 加载并显示历史聊天记录
         await this.loadHistoryMessages();
         console.log('历史消息加载完成');
@@ -39,6 +42,71 @@ class WeTalk {
         }
         
         console.log('WeTalk 应用初始化完成');
+    }
+
+    async initializeAudioPermission() {
+        try {
+            console.log('开始预申请录音权限...');
+            await this.audioRecorder.initializeAudio();
+            console.log('录音权限预申请成功');
+            
+            // 显示成功提示
+            this.showPermissionStatus('🎤 录音权限已获取，可以开始使用语音翻译', 'success');
+        } catch (error) {
+            console.error('录音权限预申请失败:', error);
+            
+            // 显示权限获取失败的提示
+            this.showPermissionStatus('⚠️ 录音权限获取失败，请点击允许麦克风访问以使用语音功能', 'warning');
+            
+            // 如果权限获取失败，可以稍后重试
+            this.schedulePermissionRetry();
+        }
+    }
+
+    showPermissionStatus(message, type) {
+        // 创建权限状态提示元素
+        const existingStatus = document.getElementById('permissionStatus');
+        if (existingStatus) {
+            existingStatus.remove();
+        }
+
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'permissionStatus';
+        statusDiv.className = `permission-status ${type}`;
+        statusDiv.innerHTML = `
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()" style="background: none; border: none; color: inherit; cursor: pointer; margin-left: 10px;">✕</button>
+        `;
+
+        // 插入到聊天容器顶部
+        const chatContainer = document.getElementById('chatContainer');
+        if (chatContainer) {
+            chatContainer.insertBefore(statusDiv, chatContainer.firstChild);
+        }
+
+        // 3秒后自动隐藏成功消息
+        if (type === 'success') {
+            setTimeout(() => {
+                if (statusDiv.parentElement) {
+                    statusDiv.remove();
+                }
+            }, 3000);
+        }
+    }
+
+    schedulePermissionRetry() {
+        // 30秒后重试权限申请
+        setTimeout(async () => {
+            if (!this.audioRecorder.hasPermission()) {
+                console.log('重试录音权限申请...');
+                try {
+                    await this.audioRecorder.initializeAudio();
+                    this.showPermissionStatus('🎤 录音权限已获取', 'success');
+                } catch (error) {
+                    console.log('权限重试失败，用户可手动触发');
+                }
+            }
+        }, 30000);
     }
 
     async loadHistoryMessages() {
@@ -242,9 +310,16 @@ class WeTalk {
             return;
         }
 
+        // 记录触摸开始位置
+        this.recordingStartY = this.getTouchY(e);
+        this.isSlideToCancel = false;
+
         try {
             await this.audioRecorder.startRecording();
             this.uiManager.showRecordingOverlay();
+            
+            // 重置为初始状态
+            this.uiManager.showSlideToCancelFeedback(false);
             
             // 添加录音状态
             const recordBtn = document.getElementById('recordBtn');
@@ -257,16 +332,76 @@ class WeTalk {
                 if (recordingStatus) {
                     recordingStatus.textContent = '🔴 录音中... (松开空格发送 | ESC取消)';
                 }
+            } else {
+                // 添加触摸移动监听器
+                this.addTouchMoveListeners();
             }
         } catch (error) {
             this.uiManager.showError('无法访问麦克风，请检查权限设置');
         }
     }
 
+    getTouchY(e) {
+        if (e.touches && e.touches.length > 0) {
+            return e.touches[0].clientY;
+        } else if (e.clientY !== undefined) {
+            return e.clientY;
+        }
+        return 0;
+    }
+
+    addTouchMoveListeners() {
+        // 添加触摸移动监听器
+        document.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        document.addEventListener('mousemove', this.handleTouchMove.bind(this));
+    }
+
+    removeTouchMoveListeners() {
+        // 移除触摸移动监听器
+        document.removeEventListener('touchmove', this.handleTouchMove.bind(this));
+        document.removeEventListener('mousemove', this.handleTouchMove.bind(this));
+    }
+
+    handleTouchMove(e) {
+        if (!this.audioRecorder.isRecording || this.isRecordingWithKeyboard) return;
+
+        const currentY = this.getTouchY(e);
+        const deltaY = this.recordingStartY - currentY; // 上滑为正值
+        const cancelThreshold = 150; // 上滑150px取消，增加阈值避免误触
+
+        if (deltaY > cancelThreshold && !this.isSlideToCancel) {
+            // 触发滑动取消状态
+            this.isSlideToCancel = true;
+            this.uiManager.showSlideToCancelFeedback(true);
+            
+            // 添加震动反馈（如果支持）
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        } else if (deltaY <= cancelThreshold && this.isSlideToCancel) {
+            // 取消滑动取消状态
+            this.isSlideToCancel = false;
+            this.uiManager.showSlideToCancelFeedback(false);
+        }
+
+        // 更新滑动进度
+        const progress = Math.min(deltaY / cancelThreshold, 1);
+        this.uiManager.updateSlideProgress(progress);
+    }
+
     async stopRecording(e) {
         e.preventDefault();
         
         if (!this.audioRecorder.isRecording) return;
+
+        // 移除触摸监听器
+        this.removeTouchMoveListeners();
+
+        // 如果是滑动取消状态，则取消录音
+        if (this.isSlideToCancel) {
+            this.cancelRecording(e);
+            return;
+        }
 
         try {
             const audioBlob = await this.audioRecorder.stopRecording();
@@ -275,6 +410,9 @@ class WeTalk {
             // 移除录音状态
             const recordBtn = document.getElementById('recordBtn');
             recordBtn.classList.remove('recording', 'keyboard-recording');
+            
+            // 重置滑动状态
+            this.isSlideToCancel = false;
             
             if (audioBlob && audioBlob.size > 0) {
                 await this.processAudio(audioBlob);
@@ -291,6 +429,15 @@ class WeTalk {
             
             const recordBtn = document.getElementById('recordBtn');
             recordBtn.classList.remove('recording', 'keyboard-recording');
+            
+            // 移除触摸监听器
+            this.removeTouchMoveListeners();
+            
+            // 重置滑动状态
+            this.isSlideToCancel = false;
+            
+            // 显示取消提示
+            this.uiManager.showSuccess('录音已取消');
         }
     }
 
@@ -549,18 +696,84 @@ class AudioRecorder {
         this.audioChunks = [];
         this.isRecording = false;
         this.stream = null;
+        this.permissionGranted = false;
+        this.initializationPromise = null;
     }
 
-    async startRecording() {
+    // 预初始化音频权限和流
+    async initializeAudio() {
+        if (this.initializationPromise) {
+            return this.initializationPromise;
+        }
+
+        this.initializationPromise = this._doInitialize();
+        return this.initializationPromise;
+    }
+
+    async _doInitialize() {
         try {
+            // 检查权限状态
+            if (navigator.permissions) {
+                try {
+                    const permission = await navigator.permissions.query({ name: 'microphone' });
+                    console.log('麦克风权限状态:', permission.state);
+                    
+                    if (permission.state === 'denied') {
+                        throw new Error('麦克风权限被拒绝，请在浏览器设置中允许麦克风访问');
+                    }
+                } catch (e) {
+                    console.log('权限查询不支持，继续尝试获取权限');
+                }
+            }
+
+            // 获取音频流并保持连接
             this.stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
-                    sampleRate: 16000  // 添加采样率设置
+                    sampleRate: 16000
                 } 
             });
+            
+            this.permissionGranted = true;
+            console.log('音频权限获取成功，流已准备就绪');
+            
+            // 监听权限变化
+            if (navigator.permissions) {
+                try {
+                    const permission = await navigator.permissions.query({ name: 'microphone' });
+                    permission.addEventListener('change', () => {
+                        if (permission.state === 'denied') {
+                            this.cleanup();
+                            this.permissionGranted = false;
+                        }
+                    });
+                } catch (e) {
+                    console.log('权限监听不支持');
+                }
+            }
+            
+            return true;
+        } catch (error) {
+            this.permissionGranted = false;
+            console.error('音频初始化失败:', error);
+            throw new Error('无法访问麦克风，请确保已授权麦克风权限');
+        }
+    }
+
+    async startRecording() {
+        try {
+            // 如果还没有初始化，先初始化
+            if (!this.permissionGranted || !this.stream) {
+                await this.initializeAudio();
+            }
+
+            // 检查流是否仍然有效
+            if (!this.stream || this.stream.getTracks().length === 0 || this.stream.getTracks()[0].readyState === 'ended') {
+                console.log('音频流已失效，重新获取');
+                await this._doInitialize();
+            }
             
             // 尝试使用更兼容的音频格式
             let mimeType = 'audio/webm;codecs=opus';
@@ -596,7 +809,8 @@ class AudioRecorder {
             }, 60000);
             
         } catch (error) {
-            throw new Error('无法访问麦克风');
+            console.error('录音启动失败:', error);
+            throw new Error('无法开始录音，请检查麦克风权限');
         }
     }
 
@@ -609,7 +823,10 @@ class AudioRecorder {
 
             this.mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                this.cleanup();
+                this.isRecording = false;
+                this.audioChunks = [];
+                this.mediaRecorder = null;
+                // 注意：不要在这里清理stream，保持连接以避免重复权限请求
                 resolve(audioBlob);
             };
 
@@ -620,7 +837,10 @@ class AudioRecorder {
     cancelRecording() {
         if (this.isRecording && this.mediaRecorder) {
             this.mediaRecorder.stop();
-            this.cleanup();
+            this.isRecording = false;
+            this.audioChunks = [];
+            this.mediaRecorder = null;
+            // 注意：不要在这里清理stream
         }
     }
 
@@ -632,6 +852,13 @@ class AudioRecorder {
         }
         this.mediaRecorder = null;
         this.audioChunks = [];
+        this.permissionGranted = false;
+        this.initializationPromise = null;
+    }
+
+    // 检查是否有权限
+    hasPermission() {
+        return this.permissionGranted && this.stream && this.stream.getTracks().length > 0;
     }
 }
 
@@ -1075,6 +1302,15 @@ class UIManager {
 
     hideRecordingOverlay() {
         this.elements.recordingOverlay.classList.add('hidden');
+        
+        // 重置录音提示文字为初始状态
+        const recordingHint = this.elements.recordingOverlay.querySelector('.recording-hint');
+        if (recordingHint) {
+            recordingHint.innerHTML = '释放发送 | 上滑取消<br>離すと送信 | 上にスライドでキャンセル';
+            recordingHint.style.color = 'rgba(255, 255, 255, 0.7)';
+            recordingHint.style.fontSize = '0.85rem';
+            recordingHint.style.fontWeight = '400';
+        }
     }
 
     showSettings() {
@@ -1122,6 +1358,37 @@ class UIManager {
             toast.classList.add('hidden');
             toast.style.backgroundColor = '';
         }, 2000);
+    }
+
+    showSlideToCancelFeedback(isActive) {
+        const recordingOverlay = this.elements.recordingOverlay;
+        if (!recordingOverlay) return;
+
+        // 删除可能存在的浮层
+        const existingFeedback = document.getElementById('slideToCancelFeedback');
+        if (existingFeedback) {
+            existingFeedback.remove();
+        }
+        
+        // 只更新录音提示文字
+        const recordingHint = recordingOverlay.querySelector('.recording-hint');
+        if (recordingHint) {
+            if (isActive) {
+                recordingHint.innerHTML = '❌ 松开取消录音<br>❌ 離すとキャンセル';
+                recordingHint.style.color = '#FF3B30';
+                recordingHint.style.fontSize = '1rem';
+                recordingHint.style.fontWeight = '600';
+            } else {
+                recordingHint.innerHTML = '释放发送 | 上滑取消<br>離すと送信 | 上にスライドでキャンセル';
+                recordingHint.style.color = 'rgba(255, 255, 255, 0.7)';
+                recordingHint.style.fontSize = '0.85rem';
+                recordingHint.style.fontWeight = '400';
+            }
+        }
+    }
+
+    updateSlideProgress(progress) {
+        // 不再需要进度条，保留空方法避免错误
     }
 }
 
