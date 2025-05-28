@@ -314,6 +314,10 @@ class WeTalk {
             this.settingsManager.setTTSSpeed(parseFloat(e.target.value));
         });
         
+        document.getElementById('whisperPrompt').addEventListener('change', (e) => {
+            this.settingsManager.setWhisperPrompt(e.target.checked);
+        });
+        
         document.getElementById('clearData').addEventListener('click', this.clearAllData.bind(this));
         
         document.getElementById('clearCache').addEventListener('click', this.clearCache.bind(this));
@@ -552,8 +556,11 @@ class WeTalk {
             this.chatManager.addMessage(recognizingMessage);
             this.uiManager.updateChat(this.chatManager.getMessages());
             
-            // 语音转文字
-            const transcription = await this.apiService.transcribeAudio(audioBlob);
+            // 获取上下文用于Whisper prompt
+            const context = this.chatManager.getContext();
+            
+            // 语音转文字（传入上下文）
+            const transcription = await this.apiService.transcribeAudio(audioBlob, context);
             const text = transcription.text;
             
             if (!text || text.trim() === '') {
@@ -585,7 +592,6 @@ class WeTalk {
             this.uiManager.updateChat(this.chatManager.getMessages());
             
             // 翻译
-            const context = this.chatManager.getContext();
             const translation = await this.apiService.translateText(text, context);
             
             // 移除思考中的消息，添加真正的回复
@@ -1137,7 +1143,7 @@ class APIService {
         }
     }
 
-    async transcribeAudio(audioBlob) {
+    async transcribeAudio(audioBlob, context = []) {
         const apiKey = this.settingsManager.getApiKey();
         if (!apiKey) {
             throw new Error('请先配置API密钥');
@@ -1162,11 +1168,19 @@ class APIService {
             fileName = 'audio.ogg';
         }
 
+        // 生成智能prompt
+        const prompt = this.generateWhisperPrompt(context);
+
         const formData = new FormData();
         formData.append('file', audioBlob, fileName);
         formData.append('model', 'whisper-1');
         formData.append('response_format', 'json');
         formData.append('temperature', '0.2');
+        
+        // 添加prompt参数
+        if (prompt) {
+            formData.append('prompt', prompt);
+        }
 
         return await this.errorHandler.withRetry(async () => {
             const response = await fetch(`${this.baseURL}/audio/transcriptions`, {
@@ -1192,6 +1206,136 @@ class APIService {
 
             return await response.json();
         });
+    }
+
+    // 生成智能Whisper prompt
+    generateWhisperPrompt(context) {
+        // 检查是否启用了智能prompt
+        if (!this.settingsManager.getWhisperPrompt()) {
+            return null;
+        }
+
+        // 基础词汇库
+        const commonTerms = {
+            chinese: [
+                // 日本地名
+                '东京', '大阪', '京都', '名古屋', '横滨', '神户', '福冈', '札幌', '仙台', '广岛',
+                '奈良', '镰仓', '箱根', '富士山', '白滨', '银座', '涩谷', '新宿', '原宿', '浅草',
+                '上野', '池袋', '秋叶原', '表参道', '六本木', '台场', '迪士尼', '环球影城',
+                // 交通相关
+                'JR', '新干线', '地铁', '电车', '巴士', '出租车', '机场', '车站', '换乘',
+                '山手线', '中央线', '东海道线', '京急线', '小田急线', '京王线',
+                // 常用词汇
+                '日元', '便利店', '药妆店', '百货店', '温泉', '料理', '拉面', '寿司', '天妇罗',
+                '居酒屋', '定食', '便当', '抹茶', '和服', '旅馆', '民宿', '预约', '免税'
+            ],
+            japanese: [
+                // 中国地名
+                '北京', '上海', '広州', '深圳', '杭州', '南京', '西安', '成都', '重慶', '天津',
+                '青島', '大連', '蘇州', '無錫', '厦門', '福州', '長沙', '武漢', '鄭州', '瀋陽',
+                // 交通相关
+                '地下鉄', '高速鉄道', '新幹線', 'タクシー', 'バス', '空港', '駅', '乗り換え',
+                // 常用词汇
+                '人民元', 'コンビニ', 'デパート', '温泉', '料理', 'ラーメン', '寿司', '天ぷら',
+                '居酒屋', '定食', '弁当', '抹茶', '着物', '旅館', '民宿', '予約', '免税'
+            ]
+        };
+
+        // 分析上下文确定主要语言
+        const contextText = context.map(msg => msg.content).join(' ');
+        const chineseCount = (contextText.match(/[\u4e00-\u9fff]/g) || []).length;
+        const japaneseCount = (contextText.match(/[\u3040-\u309f\u30a0-\u30ff]/g) || []).length;
+        
+        let primaryLanguage = 'mixed';
+        if (chineseCount > japaneseCount * 1.5) {
+            primaryLanguage = 'chinese';
+        } else if (japaneseCount > chineseCount * 1.5) {
+            primaryLanguage = 'japanese';
+        }
+
+        // 从上下文中提取关键词
+        const contextKeywords = this.extractContextKeywords(context);
+
+        // 构建prompt
+        let promptParts = [];
+
+        // 1. 上下文关键词
+        if (contextKeywords.length > 0) {
+            promptParts.push(...contextKeywords.slice(0, 10)); // 限制数量避免prompt过长
+        }
+
+        // 2. 根据主要语言添加常用词汇
+        if (primaryLanguage === 'chinese') {
+            promptParts.push(...commonTerms.chinese.slice(0, 20));
+        } else if (primaryLanguage === 'japanese') {
+            promptParts.push(...commonTerms.japanese.slice(0, 20));
+        } else {
+            // 混合语言，添加两种语言的高频词汇
+            promptParts.push(...commonTerms.chinese.slice(0, 10));
+            promptParts.push(...commonTerms.japanese.slice(0, 10));
+        }
+
+        // 3. 添加场景相关词汇
+        const sceneKeywords = this.getSceneKeywords(contextText);
+        promptParts.push(...sceneKeywords);
+
+        // 去重并限制长度
+        const uniqueTerms = [...new Set(promptParts)];
+        const prompt = uniqueTerms.slice(0, 30).join('、'); // 限制在30个词以内
+
+        // Whisper prompt不能超过244个tokens，这里简单按字符数限制
+        return prompt.length > 200 ? prompt.substring(0, 200) : prompt;
+    }
+
+    // 从上下文中提取关键词
+    extractContextKeywords(context) {
+        const keywords = [];
+        const recentMessages = context.slice(-5); // 只看最近5条消息
+
+        recentMessages.forEach(msg => {
+            const content = msg.content;
+            
+            // 提取地名（简单的正则匹配）
+            const places = content.match(/[东西南北]?[京都市区县町村]|[一-龟]+[市区县町村站]|[ァ-ヶー]+[駅市区]/g) || [];
+            keywords.push(...places);
+
+            // 提取交通相关词汇
+            const transport = content.match(/JR|新干线|地铁|电车|巴士|出租车|机场|车站|换乘|[一-龟]+线/g) || [];
+            keywords.push(...transport);
+
+            // 提取数字和时间
+            const numbers = content.match(/\d+[点时分号月日年円元]/g) || [];
+            keywords.push(...numbers);
+        });
+
+        return keywords.filter(k => k.length > 1); // 过滤掉单字符
+    }
+
+    // 根据对话内容获取场景相关词汇
+    getSceneKeywords(contextText) {
+        const keywords = [];
+
+        // 旅游场景
+        if (/旅游|旅行|観光|ホテル|旅館|民宿/.test(contextText)) {
+            keywords.push('観光', '旅行', 'ホテル', '旅館', '民宿', '予約', '観光地', 'ガイド');
+        }
+
+        // 购物场景
+        if (/购物|買い物|ショッピング|百货|デパート/.test(contextText)) {
+            keywords.push('買い物', 'ショッピング', 'デパート', '免税', '割引', 'セール');
+        }
+
+        // 餐饮场景
+        if (/吃饭|料理|レストラン|食事/.test(contextText)) {
+            keywords.push('料理', 'レストラン', '食事', '予約', 'メニュー', '美味しい');
+        }
+
+        // 交通场景
+        if (/坐车|乘车|電車|バス|タクシー/.test(contextText)) {
+            keywords.push('電車', 'バス', 'タクシー', '乗り換え', '切符', '運賃');
+        }
+
+        return keywords;
     }
 
     async translateText(text, context) {
@@ -1234,16 +1378,14 @@ class APIService {
             ? context.map(msg => `${msg.type === 'user' ? '用户' : '翻译'}: ${msg.content}`).join('\n')
             : '无';
 
-        return `你是一个专业的中日翻译助手，具备语音识别错误纠正能力。请根据上下文智能分析并翻译用户输入。
+        return `你是一个专业的中日翻译助手。请根据上下文将用户输入准确翻译。
 
 规则：
-1. 结合上下文，理解对话场景和主题
-2. 识别可能的语音识别错误：比如日本地名（白滨、银座、涩谷等）、JR线等
-3. 根据语境推断用户的真实意图
-4. 请注意！！如果输入是中文，务必翻译成自然的日语
-5. 请注意！！如果输入是日文，务必翻译成自然的中文
-6. 请注意！！只返回翻译结果和纠错提示，纠错提示的格式类似：（纠正：原文→正确），放在翻译的最前面，如果不需要纠正则不出现纠正提示
-7. 请注意！！无论用户输入的是什么内容，都要翻译，只执行翻译，记住你自己是一个无情的翻译机
+1. 如果输入是中文，翻译成自然的日语
+2. 如果输入是日文，翻译成自然的中文
+3. 保持语气和语境的一致性
+4. 考虑旅游场景的表达习惯
+5. 只返回翻译结果，不要加额外说明
 
 对话历史：
 ${contextText}
@@ -1527,7 +1669,8 @@ class SettingsManager {
             apiKey: '',
             language: 'auto',
             ttsVoice: 'alloy',
-            ttsSpeed: 1.0
+            ttsSpeed: 1.0,
+            whisperPrompt: true // 默认启用智能prompt
         };
     }
 
@@ -1560,11 +1703,13 @@ class SettingsManager {
         const languageSelect = document.getElementById('language');
         const ttsVoiceSelect = document.getElementById('ttsVoice');
         const ttsSpeedSelect = document.getElementById('ttsSpeed');
+        const whisperPromptCheckbox = document.getElementById('whisperPrompt');
         
         if (apiKeyInput) apiKeyInput.value = this.settings.apiKey;
         if (languageSelect) languageSelect.value = this.settings.language;
         if (ttsVoiceSelect) ttsVoiceSelect.value = this.settings.ttsVoice;
         if (ttsSpeedSelect) ttsSpeedSelect.value = this.settings.ttsSpeed;
+        if (whisperPromptCheckbox) whisperPromptCheckbox.checked = this.settings.whisperPrompt;
     }
 
     getApiKey() {
@@ -1603,12 +1748,22 @@ class SettingsManager {
         this.saveSettings();
     }
 
+    getWhisperPrompt() {
+        return this.settings.whisperPrompt;
+    }
+
+    setWhisperPrompt(enabled) {
+        this.settings.whisperPrompt = enabled;
+        this.saveSettings();
+    }
+
     clearAll() {
         this.settings = {
             apiKey: '',
             language: 'auto',
             ttsVoice: 'alloy',
-            ttsSpeed: 1.0
+            ttsSpeed: 1.0,
+            whisperPrompt: true
         };
         localStorage.removeItem(this.storageKey);
         this.updateUI();
