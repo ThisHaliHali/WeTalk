@@ -184,20 +184,30 @@ class WeTalk {
             console.error('找不到模式切换按钮');
         }
         
-        // 录音按钮事件
+        // 录音按钮事件 - 添加长按检测
         const recordBtn = document.getElementById('recordBtn');
         console.log('录音按钮元素:', recordBtn);
         console.log('录音按钮类名:', recordBtn ? recordBtn.className : 'null');
         
         if (recordBtn) {
-            recordBtn.addEventListener('mousedown', this.startRecording.bind(this));
-            recordBtn.addEventListener('mouseup', this.stopRecording.bind(this));
-            recordBtn.addEventListener('mouseleave', this.cancelRecording.bind(this));
+            // 初始化长按相关变量
+            this.longPressTimer = null;
+            this.isLongPressing = false;
+            this.longPressThreshold = 200; // 200ms长按阈值
             
-            // 触摸事件支持
-            recordBtn.addEventListener('touchstart', this.startRecording.bind(this));
-            recordBtn.addEventListener('touchend', this.stopRecording.bind(this));
-            recordBtn.addEventListener('touchcancel', this.cancelRecording.bind(this));
+            // 创建绑定的事件处理函数，确保可以正确移除
+            this.boundHandleTouchMove = this.handleTouchMove.bind(this);
+            this.boundHandleMouseMove = this.handleTouchMove.bind(this);
+            
+            // 鼠标事件
+            recordBtn.addEventListener('mousedown', this.handleRecordStart.bind(this));
+            recordBtn.addEventListener('mouseup', this.handleRecordEnd.bind(this));
+            recordBtn.addEventListener('mouseleave', this.handleRecordCancel.bind(this));
+            
+            // 触摸事件
+            recordBtn.addEventListener('touchstart', this.handleRecordStart.bind(this));
+            recordBtn.addEventListener('touchend', this.handleRecordEnd.bind(this));
+            recordBtn.addEventListener('touchcancel', this.handleRecordCancel.bind(this));
         }
         
         // 文字输入事件
@@ -322,7 +332,8 @@ class WeTalk {
         }
     }
 
-    async startRecording(e) {
+    // 长按检测事件处理方法
+    handleRecordStart(e) {
         e.preventDefault();
         
         if (!this.settingsManager.getApiKey()) {
@@ -333,6 +344,66 @@ class WeTalk {
         // 记录触摸开始位置
         this.recordingStartY = this.getTouchY(e);
         this.isSlideToCancel = false;
+        this.isLongPressing = false;
+
+        // 设置长按定时器
+        this.longPressTimer = setTimeout(() => {
+            this.isLongPressing = true;
+            this.startRecording(e);
+        }, this.longPressThreshold);
+
+        // 添加视觉反馈 - 按钮按下状态
+        const recordBtn = document.getElementById('recordBtn');
+        recordBtn.classList.add('pressing');
+    }
+
+    handleRecordEnd(e) {
+        e.preventDefault();
+        
+        // 清除长按定时器
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+
+        // 移除按钮按下状态
+        const recordBtn = document.getElementById('recordBtn');
+        recordBtn.classList.remove('pressing');
+
+        // 如果是长按状态，则停止录音
+        if (this.isLongPressing) {
+            this.stopRecording(e);
+        } else {
+            // 短按，显示提示
+            this.uiManager.showError('请长按录音按钮开始录音');
+        }
+
+        this.isLongPressing = false;
+    }
+
+    handleRecordCancel(e) {
+        // 清除长按定时器
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+
+        // 移除按钮按下状态
+        const recordBtn = document.getElementById('recordBtn');
+        recordBtn.classList.remove('pressing');
+
+        // 如果正在录音，则取消录音
+        if (this.isLongPressing) {
+            this.cancelRecording(e);
+        }
+
+        this.isLongPressing = false;
+    }
+
+    async startRecording(e) {
+        e.preventDefault();
+        
+        // API密钥检查已在handleRecordStart中进行，这里不需要重复检查
 
         try {
             await this.audioRecorder.startRecording();
@@ -344,6 +415,7 @@ class WeTalk {
             // 添加录音状态
             const recordBtn = document.getElementById('recordBtn');
             recordBtn.classList.add('recording');
+            recordBtn.classList.remove('pressing'); // 移除按下状态，添加录音状态
             
             // 如果是键盘录音，添加特殊样式和提示
             if (this.isRecordingWithKeyboard) {
@@ -372,14 +444,14 @@ class WeTalk {
 
     addTouchMoveListeners() {
         // 添加触摸移动监听器
-        document.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
-        document.addEventListener('mousemove', this.handleTouchMove.bind(this));
+        document.addEventListener('touchmove', this.boundHandleTouchMove, { passive: false });
+        document.addEventListener('mousemove', this.boundHandleMouseMove);
     }
 
     removeTouchMoveListeners() {
         // 移除触摸移动监听器
-        document.removeEventListener('touchmove', this.handleTouchMove.bind(this));
-        document.removeEventListener('mousemove', this.handleTouchMove.bind(this));
+        document.removeEventListener('touchmove', this.boundHandleTouchMove);
+        document.removeEventListener('mousemove', this.boundHandleMouseMove);
     }
 
     handleTouchMove(e) {
@@ -1179,6 +1251,7 @@ class APIService {
 智能纠错逻辑：
 1. 检查输入是否符合上下文逻辑
 2. 识别常见语音识别错误：
+   - 常见错误：如果白宾、白冰、白兵相关的，都纠正为白滨，除非用户强烈要求白金这个地名
    - 同音词混淆：点击→电吉他、在哪→再拿、怎么走→怎么做、这里→哲理
    - 语音断句错误：我要去→我要取、请问→清问、谢谢你→谢谢尼
    - 口语化表达：咋样→怎样、啥时候→什么时候、咋办→怎么办
