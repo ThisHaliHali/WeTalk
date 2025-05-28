@@ -306,6 +306,8 @@ class WeTalk {
         
         document.getElementById('clearData').addEventListener('click', this.clearAllData.bind(this));
         
+        document.getElementById('clearCache').addEventListener('click', this.clearCache.bind(this));
+        
         document.getElementById('resetPermission').addEventListener('click', this.resetPermission.bind(this));
         
         // 设置面板事件
@@ -544,6 +546,15 @@ class WeTalk {
             });
         } else {
             this.uiManager.showError('没有可复制的翻译内容');
+        }
+    }
+
+    async clearCache() {
+        if (confirm('确定要清理本地缓存吗？这将清空所有聊天记录，但保留您的设置信息。')) {
+            await this.chatManager.clearAll();
+            this.uiManager.updateChat([]);
+            this.uiManager.hideSettings();
+            this.uiManager.showSuccess('本地缓存已清理，聊天记录已清空');
         }
     }
 
