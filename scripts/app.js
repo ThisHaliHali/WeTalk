@@ -46,20 +46,34 @@ class WeTalk {
 
     async initializeAudioPermission() {
         try {
-            console.log('开始预申请录音权限...');
+            console.log('开始检查录音权限状态...');
+            
+            // 先检查权限状态
+            const permissionStatus = await this.audioRecorder.checkPermissionStatus();
+            
+            if (permissionStatus === 'granted') {
+                console.log('录音权限已授权');
+                this.showPermissionStatus('🎤 录音权限已就绪，可以开始使用语音翻译', 'success');
+                return;
+            }
+            
+            if (permissionStatus === 'denied') {
+                console.log('录音权限被拒绝');
+                this.showPermissionStatus('⚠️ 录音权限被拒绝，请在浏览器设置中允许麦克风访问', 'error');
+                return;
+            }
+            
+            // 权限状态未知，进行权限测试
             await this.audioRecorder.initializeAudio();
-            console.log('录音权限预申请成功');
+            console.log('录音权限测试成功');
             
             // 显示成功提示
             this.showPermissionStatus('🎤 录音权限已获取，可以开始使用语音翻译', 'success');
         } catch (error) {
-            console.error('录音权限预申请失败:', error);
+            console.error('录音权限处理失败:', error);
             
             // 显示权限获取失败的提示
-            this.showPermissionStatus('⚠️ 录音权限获取失败，请点击允许麦克风访问以使用语音功能', 'warning');
-            
-            // 如果权限获取失败，可以稍后重试
-            this.schedulePermissionRetry();
+            this.showPermissionStatus('⚠️ 录音权限获取失败，首次录音时会再次申请权限', 'warning');
         }
     }
 
@@ -92,21 +106,6 @@ class WeTalk {
                 }
             }, 3000);
         }
-    }
-
-    schedulePermissionRetry() {
-        // 30秒后重试权限申请
-        setTimeout(async () => {
-            if (!this.audioRecorder.hasPermission()) {
-                console.log('重试录音权限申请...');
-                try {
-                    await this.audioRecorder.initializeAudio();
-                    this.showPermissionStatus('🎤 录音权限已获取', 'success');
-                } catch (error) {
-                    console.log('权限重试失败，用户可手动触发');
-                }
-            }
-        }, 30000);
     }
 
     async loadHistoryMessages() {
@@ -289,6 +288,8 @@ class WeTalk {
         });
         
         document.getElementById('clearData').addEventListener('click', this.clearAllData.bind(this));
+        
+        document.getElementById('resetPermission').addEventListener('click', this.resetPermission.bind(this));
         
         // 设置面板事件
         const closeSettingsBtn = document.getElementById('closeSettings');
@@ -687,6 +688,31 @@ class WeTalk {
             sendTextBtn.disabled = false;
         }
     }
+
+    async resetPermission() {
+        const resetBtn = document.getElementById('resetPermission');
+        
+        try {
+            // 禁用按钮并显示处理中状态
+            resetBtn.disabled = true;
+            resetBtn.textContent = '重置中...';
+            
+            // 清除权限缓存
+            this.audioRecorder.clearPermissionCache();
+            
+            // 重新检查权限
+            await this.initializeAudioPermission();
+            
+            this.uiManager.showSuccess('录音权限已重置');
+        } catch (error) {
+            console.error('重置录音权限失败:', error);
+            this.uiManager.showError('重置录音权限失败');
+        } finally {
+            // 恢复按钮状态
+            resetBtn.disabled = false;
+            resetBtn.textContent = '重新申请录音权限';
+        }
+    }
 }
 
 // 音频录制器类
@@ -696,37 +722,95 @@ class AudioRecorder {
         this.audioChunks = [];
         this.isRecording = false;
         this.stream = null;
-        this.permissionGranted = false;
-        this.initializationPromise = null;
+        this.permissionStatus = 'unknown'; // 'granted', 'denied', 'unknown'
+        this.lastPermissionCheck = 0;
+        this.permissionCacheTime = 5 * 60 * 1000; // 5分钟缓存
     }
 
-    // 预初始化音频权限和流
-    async initializeAudio() {
-        if (this.initializationPromise) {
-            return this.initializationPromise;
+    // 检查权限状态（不申请权限）
+    async checkPermissionStatus() {
+        const now = Date.now();
+        
+        // 如果最近检查过且有缓存，直接返回
+        if (now - this.lastPermissionCheck < this.permissionCacheTime && this.permissionStatus !== 'unknown') {
+            return this.permissionStatus;
         }
 
-        this.initializationPromise = this._doInitialize();
-        return this.initializationPromise;
+        try {
+            if (navigator.permissions) {
+                const permission = await navigator.permissions.query({ name: 'microphone' });
+                this.permissionStatus = permission.state;
+                this.lastPermissionCheck = now;
+                
+                // 监听权限变化
+                permission.addEventListener('change', () => {
+                    this.permissionStatus = permission.state;
+                    this.lastPermissionCheck = Date.now();
+                });
+                
+                return permission.state;
+            }
+        } catch (e) {
+            console.log('权限查询不支持，将在录音时检查');
+        }
+        
+        // 检查localStorage中的权限记录
+        const savedPermission = localStorage.getItem('wetalk_mic_permission');
+        if (savedPermission) {
+            this.permissionStatus = savedPermission;
+            return savedPermission;
+        }
+        
+        return 'unknown';
     }
 
-    async _doInitialize() {
+    // 预初始化权限检查（不保持流）
+    async initializeAudio() {
         try {
-            // 检查权限状态
-            if (navigator.permissions) {
-                try {
-                    const permission = await navigator.permissions.query({ name: 'microphone' });
-                    console.log('麦克风权限状态:', permission.state);
-                    
-                    if (permission.state === 'denied') {
-                        throw new Error('麦克风权限被拒绝，请在浏览器设置中允许麦克风访问');
-                    }
-                } catch (e) {
-                    console.log('权限查询不支持，继续尝试获取权限');
-                }
+            const permissionStatus = await this.checkPermissionStatus();
+            
+            if (permissionStatus === 'denied') {
+                throw new Error('麦克风权限被拒绝，请在浏览器设置中允许麦克风访问');
             }
+            
+            if (permissionStatus === 'granted') {
+                console.log('麦克风权限已授权');
+                return true;
+            }
+            
+            // 如果权限状态未知，进行一次快速权限测试
+            console.log('进行权限测试...');
+            const testStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: 16000
+                } 
+            });
+            
+            // 立即关闭测试流
+            testStream.getTracks().forEach(track => track.stop());
+            
+            // 记录权限已授权
+            this.permissionStatus = 'granted';
+            this.lastPermissionCheck = Date.now();
+            localStorage.setItem('wetalk_mic_permission', 'granted');
+            
+            console.log('权限测试成功，已关闭测试流');
+            return true;
+            
+        } catch (error) {
+            this.permissionStatus = 'denied';
+            localStorage.setItem('wetalk_mic_permission', 'denied');
+            console.error('权限测试失败:', error);
+            throw new Error('无法访问麦克风，请确保已授权麦克风权限');
+        }
+    }
 
-            // 获取音频流并保持连接
+    async startRecording() {
+        try {
+            // 每次录音时获取新的音频流
             this.stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
                     echoCancellation: true,
@@ -736,44 +820,9 @@ class AudioRecorder {
                 } 
             });
             
-            this.permissionGranted = true;
-            console.log('音频权限获取成功，流已准备就绪');
-            
-            // 监听权限变化
-            if (navigator.permissions) {
-                try {
-                    const permission = await navigator.permissions.query({ name: 'microphone' });
-                    permission.addEventListener('change', () => {
-                        if (permission.state === 'denied') {
-                            this.cleanup();
-                            this.permissionGranted = false;
-                        }
-                    });
-                } catch (e) {
-                    console.log('权限监听不支持');
-                }
-            }
-            
-            return true;
-        } catch (error) {
-            this.permissionGranted = false;
-            console.error('音频初始化失败:', error);
-            throw new Error('无法访问麦克风，请确保已授权麦克风权限');
-        }
-    }
-
-    async startRecording() {
-        try {
-            // 如果还没有初始化，先初始化
-            if (!this.permissionGranted || !this.stream) {
-                await this.initializeAudio();
-            }
-
-            // 检查流是否仍然有效
-            if (!this.stream || this.stream.getTracks().length === 0 || this.stream.getTracks()[0].readyState === 'ended') {
-                console.log('音频流已失效，重新获取');
-                await this._doInitialize();
-            }
+            // 更新权限状态
+            this.permissionStatus = 'granted';
+            localStorage.setItem('wetalk_mic_permission', 'granted');
             
             // 尝试使用更兼容的音频格式
             let mimeType = 'audio/webm;codecs=opus';
@@ -809,6 +858,12 @@ class AudioRecorder {
             }, 60000);
             
         } catch (error) {
+            // 如果权限被拒绝，更新状态
+            if (error.name === 'NotAllowedError' || error.message.includes('Permission denied')) {
+                this.permissionStatus = 'denied';
+                localStorage.setItem('wetalk_mic_permission', 'denied');
+            }
+            
             console.error('录音启动失败:', error);
             throw new Error('无法开始录音，请检查麦克风权限');
         }
@@ -823,10 +878,7 @@ class AudioRecorder {
 
             this.mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                this.isRecording = false;
-                this.audioChunks = [];
-                this.mediaRecorder = null;
-                // 注意：不要在这里清理stream，保持连接以避免重复权限请求
+                this.cleanup(); // 立即清理资源
                 resolve(audioBlob);
             };
 
@@ -837,11 +889,8 @@ class AudioRecorder {
     cancelRecording() {
         if (this.isRecording && this.mediaRecorder) {
             this.mediaRecorder.stop();
-            this.isRecording = false;
-            this.audioChunks = [];
-            this.mediaRecorder = null;
-            // 注意：不要在这里清理stream
         }
+        this.cleanup(); // 立即清理资源
     }
 
     cleanup() {
@@ -852,13 +901,18 @@ class AudioRecorder {
         }
         this.mediaRecorder = null;
         this.audioChunks = [];
-        this.permissionGranted = false;
-        this.initializationPromise = null;
     }
 
-    // 检查是否有权限
+    // 检查是否有权限（基于缓存状态）
     hasPermission() {
-        return this.permissionGranted && this.stream && this.stream.getTracks().length > 0;
+        return this.permissionStatus === 'granted';
+    }
+
+    // 清除权限缓存（用于重置）
+    clearPermissionCache() {
+        this.permissionStatus = 'unknown';
+        this.lastPermissionCheck = 0;
+        localStorage.removeItem('wetalk_mic_permission');
     }
 }
 

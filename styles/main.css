@@ -843,4 +843,26 @@ body {
     background-color: rgba(255, 59, 48, 0.1);
     color: var(--danger-color);
     border: 1px solid rgba(255, 59, 48, 0.3);
+}
+
+.reset-permission-btn {
+    background-color: var(--warning-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.reset-permission-btn:hover {
+    background-color: #E6830A;
+}
+
+.reset-permission-btn:disabled {
+    background-color: var(--text-secondary);
+    cursor: not-allowed;
 } 
