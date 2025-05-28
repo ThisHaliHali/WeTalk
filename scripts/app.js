@@ -7,6 +7,7 @@ class WeTalk {
         this.apiService = new APIService(this.settingsManager);
         this.chatManager = new ChatManager();
         this.uiManager = new UIManager();
+        this.ttsManager = new TTSManager(this.apiService, this.settingsManager);
         this.isVoiceMode = true; // 默认语音模式
         this.storageKey = 'wetalk_settings';
         
@@ -24,6 +25,9 @@ class WeTalk {
         
         this.uiManager.init();
         console.log('UI管理器初始化完成');
+        
+        this.ttsManager.init();
+        console.log('TTS管理器初始化完成');
         
         this.bindEvents();
         console.log('事件绑定完成');
@@ -275,6 +279,11 @@ class WeTalk {
             this.uiManager.showSettings();
         });
         
+        // TTS开关按钮事件
+        document.getElementById('ttsToggleBtn').addEventListener('click', () => {
+            this.ttsManager.toggle();
+        });
+        
         document.getElementById('apiKey').addEventListener('input', (e) => {
             this.settingsManager.setApiKey(e.target.value);
             // 清除之前的验证状态
@@ -285,6 +294,14 @@ class WeTalk {
         
         document.getElementById('language').addEventListener('change', (e) => {
             this.settingsManager.setLanguage(e.target.value);
+        });
+        
+        document.getElementById('ttsVoice').addEventListener('change', (e) => {
+            this.settingsManager.setTTSVoice(e.target.value);
+        });
+        
+        document.getElementById('ttsSpeed').addEventListener('change', (e) => {
+            this.settingsManager.setTTSSpeed(parseFloat(e.target.value));
         });
         
         document.getElementById('clearData').addEventListener('click', this.clearAllData.bind(this));
@@ -508,6 +525,9 @@ class WeTalk {
             // 更新UI
             this.uiManager.updateChat(this.chatManager.getMessages());
             
+            // 播放TTS（如果启用）
+            await this.ttsManager.playText(translation);
+            
         } catch (error) {
             console.error('处理音频失败:', error);
             this.uiManager.showError(error.message);
@@ -671,6 +691,9 @@ class WeTalk {
             // 更新UI
             this.uiManager.updateChat(this.chatManager.getMessages());
             
+            // 播放TTS（如果启用）
+            await this.ttsManager.playText(translation);
+            
         } catch (error) {
             console.error('处理文字失败:', error);
             this.uiManager.showError(error.message);
@@ -711,6 +734,66 @@ class WeTalk {
             // 恢复按钮状态
             resetBtn.disabled = false;
             resetBtn.textContent = '重新申请录音权限';
+        }
+    }
+
+    async playMessageTTS(text) {
+        if (!text || text.trim() === '') {
+            return;
+        }
+
+        try {
+            // 找到对应的播放按钮
+            const playButtons = document.querySelectorAll('.play-tts-btn');
+            let targetButton = null;
+            
+            playButtons.forEach(btn => {
+                const btnText = btn.getAttribute('onclick').match(/'([^']+)'/);
+                if (btnText && btnText[1] === text.replace(/&#39;/g, "'").replace(/&quot;/g, '"')) {
+                    targetButton = btn;
+                }
+            });
+
+            // 重置所有按钮状态
+            playButtons.forEach(btn => {
+                btn.classList.remove('playing', 'loading');
+                btn.querySelector('.play-icon').textContent = '🔊';
+            });
+
+            // 停止当前播放的TTS
+            this.ttsManager.stopCurrentAudio();
+
+            // 播放新的TTS，使用回调更新按钮状态
+            await this.ttsManager.playText(text, (state) => {
+                if (!targetButton) return;
+
+                switch (state) {
+                    case 'loading':
+                        targetButton.classList.add('loading');
+                        targetButton.querySelector('.play-icon').textContent = '⏳';
+                        break;
+                    case 'playing':
+                        targetButton.classList.remove('loading');
+                        targetButton.classList.add('playing');
+                        targetButton.querySelector('.play-icon').textContent = '🎵';
+                        break;
+                    case 'ended':
+                    case 'error':
+                        targetButton.classList.remove('playing', 'loading');
+                        targetButton.querySelector('.play-icon').textContent = '🔊';
+                        break;
+                }
+            });
+
+        } catch (error) {
+            console.error('播放TTS失败:', error);
+            
+            // 恢复所有按钮状态
+            const playButtons = document.querySelectorAll('.play-tts-btn');
+            playButtons.forEach(btn => {
+                btn.classList.remove('playing', 'loading');
+                btn.querySelector('.play-icon').textContent = '🔊';
+            });
         }
     }
 }
@@ -1084,6 +1167,186 @@ ${contextText}
         // 简单的格式转换，实际项目中可能需要更复杂的音频处理
         return audioBlob;
     }
+
+    async textToSpeech(text, voice = 'alloy', speed = 1.0) {
+        const apiKey = this.settingsManager.getApiKey();
+        if (!apiKey) {
+            throw new Error('请先配置API密钥');
+        }
+
+        return await this.errorHandler.withRetry(async () => {
+            const response = await fetch(`${this.baseURL}/audio/speech`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'tts-1',
+                    input: text,
+                    voice: voice,
+                    speed: speed,
+                    response_format: 'mp3'
+                })
+            });
+
+            if (!response.ok) {
+                let errorMessage = `TTS API错误: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.error && errorData.error.message) {
+                        errorMessage = `TTS API错误: ${errorData.error.message}`;
+                    }
+                } catch (e) {
+                    // 如果无法解析错误响应，使用默认错误消息
+                }
+                throw new Error(errorMessage);
+            }
+
+            return await response.blob();
+        });
+    }
+}
+
+// TTS管理类
+class TTSManager {
+    constructor(apiService, settingsManager) {
+        this.apiService = apiService;
+        this.settingsManager = settingsManager;
+        this.isEnabled = false;
+        this.currentAudio = null;
+        this.isPlaying = false;
+    }
+
+    init() {
+        // 从localStorage加载TTS设置
+        const savedTTSEnabled = localStorage.getItem('wetalk_tts_enabled');
+        this.isEnabled = savedTTSEnabled === 'true';
+        
+        this.updateToggleButton();
+    }
+
+    toggle() {
+        this.isEnabled = !this.isEnabled;
+        localStorage.setItem('wetalk_tts_enabled', this.isEnabled.toString());
+        this.updateToggleButton();
+        
+        // 如果关闭TTS，停止当前播放
+        if (!this.isEnabled && this.isPlaying) {
+            this.stopCurrentAudio();
+        }
+    }
+
+    updateToggleButton() {
+        const toggleBtn = document.getElementById('ttsToggleBtn');
+        const icon = toggleBtn.querySelector('.tts-icon');
+        
+        if (this.isEnabled) {
+            toggleBtn.classList.add('active');
+            icon.textContent = '🔊';
+            toggleBtn.title = '语音播放：开启';
+        } else {
+            toggleBtn.classList.remove('active');
+            icon.textContent = '🔇';
+            toggleBtn.title = '语音播放：关闭';
+        }
+    }
+
+    async playText(text, onStateChange = null) {
+        if (!this.isEnabled || !text || text.trim() === '') {
+            return;
+        }
+
+        try {
+            // 停止当前播放
+            this.stopCurrentAudio();
+
+            // 获取TTS设置
+            const voice = this.settingsManager.getTTSVoice();
+            const speed = this.settingsManager.getTTSSpeed();
+
+            // 显示加载状态
+            this.setLoadingState(true);
+            if (onStateChange) onStateChange('loading');
+
+            // 调用TTS API
+            const audioBlob = await this.apiService.textToSpeech(text, voice, speed);
+            
+            // 创建音频对象并播放
+            const audioUrl = URL.createObjectURL(audioBlob);
+            this.currentAudio = new Audio(audioUrl);
+            
+            this.currentAudio.onloadeddata = () => {
+                this.setLoadingState(false);
+            };
+
+            this.currentAudio.onplay = () => {
+                this.isPlaying = true;
+                this.updatePlayingState(true);
+                if (onStateChange) onStateChange('playing');
+            };
+
+            this.currentAudio.onended = () => {
+                this.isPlaying = false;
+                this.updatePlayingState(false);
+                URL.revokeObjectURL(audioUrl);
+                this.currentAudio = null;
+                if (onStateChange) onStateChange('ended');
+            };
+
+            this.currentAudio.onerror = () => {
+                this.isPlaying = false;
+                this.setLoadingState(false);
+                this.updatePlayingState(false);
+                URL.revokeObjectURL(audioUrl);
+                this.currentAudio = null;
+                if (onStateChange) onStateChange('error');
+                console.error('音频播放失败');
+            };
+
+            await this.currentAudio.play();
+
+        } catch (error) {
+            this.setLoadingState(false);
+            if (onStateChange) onStateChange('error');
+            console.error('TTS播放失败:', error);
+            // 不显示错误提示，避免干扰用户体验
+        }
+    }
+
+    stopCurrentAudio() {
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio.currentTime = 0;
+            this.currentAudio = null;
+            this.isPlaying = false;
+            this.updatePlayingState(false);
+        }
+    }
+
+    setLoadingState(isLoading) {
+        const toggleBtn = document.getElementById('ttsToggleBtn');
+        const icon = toggleBtn.querySelector('.tts-icon');
+        
+        if (isLoading) {
+            toggleBtn.classList.add('disabled');
+            icon.textContent = '⏳';
+        } else {
+            toggleBtn.classList.remove('disabled');
+            this.updateToggleButton();
+        }
+    }
+
+    updatePlayingState(isPlaying) {
+        const toggleBtn = document.getElementById('ttsToggleBtn');
+        const icon = toggleBtn.querySelector('.tts-icon');
+        
+        if (isPlaying && this.isEnabled) {
+            icon.textContent = '🎵';
+        } else {
+            this.updateToggleButton();
+        }
+    }
 }
 
 // 对话管理类
@@ -1164,7 +1427,9 @@ class SettingsManager {
         this.storageKey = 'wetalk_settings';
         this.settings = {
             apiKey: '',
-            language: 'auto'
+            language: 'auto',
+            ttsVoice: 'alloy',
+            ttsSpeed: 1.0
         };
     }
 
@@ -1195,9 +1460,13 @@ class SettingsManager {
     updateUI() {
         const apiKeyInput = document.getElementById('apiKey');
         const languageSelect = document.getElementById('language');
+        const ttsVoiceSelect = document.getElementById('ttsVoice');
+        const ttsSpeedSelect = document.getElementById('ttsSpeed');
         
         if (apiKeyInput) apiKeyInput.value = this.settings.apiKey;
         if (languageSelect) languageSelect.value = this.settings.language;
+        if (ttsVoiceSelect) ttsVoiceSelect.value = this.settings.ttsVoice;
+        if (ttsSpeedSelect) ttsSpeedSelect.value = this.settings.ttsSpeed;
     }
 
     getApiKey() {
@@ -1218,10 +1487,30 @@ class SettingsManager {
         this.saveSettings();
     }
 
+    getTTSVoice() {
+        return this.settings.ttsVoice;
+    }
+
+    setTTSVoice(ttsVoice) {
+        this.settings.ttsVoice = ttsVoice;
+        this.saveSettings();
+    }
+
+    getTTSSpeed() {
+        return this.settings.ttsSpeed;
+    }
+
+    setTTSSpeed(ttsSpeed) {
+        this.settings.ttsSpeed = ttsSpeed;
+        this.saveSettings();
+    }
+
     clearAll() {
         this.settings = {
             apiKey: '',
-            language: 'auto'
+            language: 'auto',
+            ttsVoice: 'alloy',
+            ttsSpeed: 1.0
         };
         localStorage.removeItem(this.storageKey);
         this.updateUI();
@@ -1337,8 +1626,19 @@ class UIManager {
             content = this.escapeHtml(message.content);
         }
 
+        // 为assistant消息添加播放按钮
+        let playButton = '';
+        if (message.type === 'assistant' && !message.isLoading && message.content && message.content.trim()) {
+            playButton = `
+                <button class="play-tts-btn" onclick="window.weTalk.playMessageTTS('${this.escapeForAttribute(message.content)}')" title="播放语音">
+                    <span class="play-icon">🔊</span>
+                </button>
+            `;
+        }
+
         div.innerHTML = `
             <div class="message-content">${content}</div>
+            ${playButton}
         `;
 
         return div;
@@ -1348,6 +1648,10 @@ class UIManager {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    escapeForAttribute(text) {
+        return text.replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/\n/g, ' ').replace(/\r/g, '');
     }
 
     showRecordingOverlay() {

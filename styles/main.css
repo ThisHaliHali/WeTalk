@@ -60,6 +60,40 @@ body {
     color: var(--primary-color);
 }
 
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tts-toggle-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: var(--transition);
+    position: relative;
+}
+
+.tts-toggle-btn:hover {
+    transform: scale(1.1);
+}
+
+.tts-toggle-btn.active {
+    color: var(--primary-color);
+}
+
+.tts-toggle-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.tts-icon {
+    display: inline-block;
+    transition: var(--transition);
+}
+
 .settings-btn {
     background: none;
     border: none;
@@ -122,6 +156,10 @@ body {
     margin-bottom: 0.5rem;
     word-wrap: break-word;
     animation: fadeInUp 0.3s ease;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
 .message.user {
@@ -129,6 +167,7 @@ body {
     color: white;
     align-self: flex-end;
     margin-left: auto;
+    flex-direction: row-reverse;
 }
 
 .message.assistant {
@@ -140,6 +179,40 @@ body {
 
 .message-content {
     line-height: 1.4;
+    flex: 1;
+}
+
+.play-tts-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: var(--transition);
+    font-size: 0.9rem;
+    opacity: 0.7;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+.play-tts-btn:hover {
+    opacity: 1;
+    background-color: rgba(0, 122, 255, 0.1);
+    transform: scale(1.1);
+}
+
+.play-tts-btn.playing {
+    opacity: 1;
+    color: var(--primary-color);
+}
+
+.play-tts-btn.loading {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.play-icon {
+    display: inline-block;
 }
 
 /* Loading状态样式 */
@@ -865,4 +938,23 @@ body {
 .reset-permission-btn:disabled {
     background-color: var(--text-secondary);
     cursor: not-allowed;
+}
+
+.tts-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.tts-setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tts-setting-row label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0;
 } 

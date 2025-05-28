@@ -27,7 +27,12 @@
         <!-- 头部 -->
         <header class="header">
             <h1>WeTalk</h1>
-            <button id="settingsBtn" class="settings-btn">⚙️</button>
+            <div class="header-controls">
+                <button id="ttsToggleBtn" class="tts-toggle-btn" title="语音播放开关">
+                    <span class="tts-icon">🔊</span>
+                </button>
+                <button id="settingsBtn" class="settings-btn">⚙️</button>
+            </div>
         </header>
 
         <!-- 聊天区域 -->
@@ -110,6 +115,33 @@
                             <option value="zh">中文</option>
                             <option value="ja">日语</option>
                         </select>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>语音播放设置</label>
+                        <div class="tts-settings">
+                            <div class="tts-setting-row">
+                                <label for="ttsVoice">语音类型</label>
+                                <select id="ttsVoice">
+                                    <option value="alloy">Alloy (中性)</option>
+                                    <option value="echo">Echo (男性)</option>
+                                    <option value="fable">Fable (英式)</option>
+                                    <option value="onyx">Onyx (深沉)</option>
+                                    <option value="nova">Nova (女性)</option>
+                                    <option value="shimmer">Shimmer (温和)</option>
+                                </select>
+                            </div>
+                            <div class="tts-setting-row">
+                                <label for="ttsSpeed">语音速度</label>
+                                <select id="ttsSpeed">
+                                    <option value="0.75">慢速 (0.75x)</option>
+                                    <option value="1.0" selected>正常 (1.0x)</option>
+                                    <option value="1.25">快速 (1.25x)</option>
+                                    <option value="1.5">很快 (1.5x)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <small>语音播放功能需要消耗额外的API配额</small>
                     </div>
                     
                     <div class="setting-item">
