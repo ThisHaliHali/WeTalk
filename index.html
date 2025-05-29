@@ -63,7 +63,7 @@
                 
                 <!-- 文字模式 -->
                 <div id="textInputContainer" class="text-input-container text-mode hidden">
-                    <input type="text" id="textInput" placeholder="输入要翻译的文字..." class="text-input">
+                    <textarea id="textInput" placeholder="输入要翻译的文字..." class="text-input" rows="1"></textarea>
                     <button id="sendTextBtn" class="send-btn">
                         <span>📤</span>
                     </button>
@@ -133,6 +133,16 @@
                             </label>
                         </div>
                         <small>启用后将根据上下文优化语音识别准确性，特别是地名和专有名词</small>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label for="fontSize">字体大小</label>
+                        <select id="fontSize">
+                            <option value="medium">中等</option>
+                            <option value="large">大</option>
+                            <option value="xlarge">特大</option>
+                        </select>
+                        <small>调整聊天消息的字体大小</small>
                     </div>
                     
                     <div class="setting-item">

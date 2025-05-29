@@ -306,6 +306,10 @@ class WeTalk {
             this.settingsManager.setWhisperPrompt(e.target.checked);
         });
         
+        document.getElementById('fontSize').addEventListener('change', (e) => {
+            this.settingsManager.setFontSize(e.target.value);
+        });
+        
         document.getElementById('clearData').addEventListener('click', this.clearAllData.bind(this));
         
         document.getElementById('clearCache').addEventListener('click', this.clearCache.bind(this));
@@ -1050,6 +1054,31 @@ class WeTalk {
                     this.sendTextMessage();
                 }
             });
+        }
+    }
+
+    setWhisperPrompt(enabled) {
+        this.settings.whisperPrompt = enabled;
+        this.saveSettings();
+    }
+
+    getFontSize() {
+        return this.settings.fontSize;
+    }
+
+    setFontSize(fontSize) {
+        this.settings.fontSize = fontSize;
+        this.saveSettings();
+        this.applyFontSize();
+    }
+
+    applyFontSize() {
+        const chatContainer = document.getElementById('chatContainer');
+        if (chatContainer) {
+            // 移除所有字体大小类
+            chatContainer.classList.remove('font-size-medium', 'font-size-large', 'font-size-xlarge');
+            // 添加当前字体大小类
+            chatContainer.classList.add(`font-size-${this.settings.fontSize}`);
         }
     }
 }
@@ -1880,7 +1909,8 @@ class SettingsManager {
             language: 'auto',
             ttsVoice: 'alloy',
             ttsSpeed: 1.0,
-            whisperPrompt: true // 默认启用智能prompt
+            whisperPrompt: true, // 默认启用智能prompt
+            fontSize: 'medium' // 默认字体大小为中等
         };
     }
 
@@ -1914,12 +1944,17 @@ class SettingsManager {
         const ttsVoiceSelect = document.getElementById('ttsVoice');
         const ttsSpeedSelect = document.getElementById('ttsSpeed');
         const whisperPromptCheckbox = document.getElementById('whisperPrompt');
+        const fontSizeSelect = document.getElementById('fontSize');
         
         if (apiKeyInput) apiKeyInput.value = this.settings.apiKey;
         if (languageSelect) languageSelect.value = this.settings.language;
         if (ttsVoiceSelect) ttsVoiceSelect.value = this.settings.ttsVoice;
         if (ttsSpeedSelect) ttsSpeedSelect.value = this.settings.ttsSpeed;
         if (whisperPromptCheckbox) whisperPromptCheckbox.checked = this.settings.whisperPrompt;
+        if (fontSizeSelect) fontSizeSelect.value = this.settings.fontSize;
+        
+        // 应用字体大小到聊天容器
+        this.applyFontSize();
     }
 
     getApiKey() {
@@ -1973,10 +2008,31 @@ class SettingsManager {
             language: 'auto',
             ttsVoice: 'alloy',
             ttsSpeed: 1.0,
-            whisperPrompt: true
+            whisperPrompt: true,
+            fontSize: 'medium'
         };
         localStorage.removeItem(this.storageKey);
         this.updateUI();
+    }
+
+    getFontSize() {
+        return this.settings.fontSize;
+    }
+
+    setFontSize(fontSize) {
+        this.settings.fontSize = fontSize;
+        this.saveSettings();
+        this.applyFontSize();
+    }
+
+    applyFontSize() {
+        const chatContainer = document.getElementById('chatContainer');
+        if (chatContainer) {
+            // 移除所有字体大小类
+            chatContainer.classList.remove('font-size-medium', 'font-size-large', 'font-size-xlarge');
+            // 添加当前字体大小类
+            chatContainer.classList.add(`font-size-${this.settings.fontSize}`);
+        }
     }
 }
 

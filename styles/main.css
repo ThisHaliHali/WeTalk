@@ -1187,4 +1187,30 @@ body {
 
 .edit-btn:active {
     transform: scale(0.95);
+}
+
+/* 字体大小控制 */
+.font-size-medium .message {
+    font-size: 1rem; /* 默认大小 */
+}
+
+.font-size-large .message {
+    font-size: 1.125rem; /* 18px */
+}
+
+.font-size-xlarge .message {
+    font-size: 1.25rem; /* 20px */
+}
+
+/* 确保欢迎消息也受字体大小影响 */
+.font-size-medium .welcome-message {
+    font-size: 1rem;
+}
+
+.font-size-large .welcome-message {
+    font-size: 1.125rem;
+}
+
+.font-size-xlarge .welcome-message {
+    font-size: 1.25rem;
 } 
