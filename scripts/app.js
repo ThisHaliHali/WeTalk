@@ -959,6 +959,145 @@ class WeTalk {
         // 移除触摸监听器
         this.removeTouchMoveListeners();
     }
+
+    // 消息编辑相关方法
+    startEdit(messageId) {
+        console.log('开始编辑消息:', messageId);
+        
+        // 找到要编辑的消息
+        const message = this.chatManager.getMessageById(messageId);
+        if (!message) {
+            console.error('找不到要编辑的消息');
+            return;
+        }
+
+        // 设置编辑状态
+        message.isEditing = true;
+        message.originalContent = message.content; // 保存原始内容
+        
+        // 更新UI
+        this.uiManager.updateChat(this.chatManager.getMessages());
+        
+        // 聚焦到编辑输入框
+        setTimeout(() => {
+            const editInput = document.querySelector('.edit-input');
+            if (editInput) {
+                editInput.focus();
+                editInput.select();
+                
+                // 添加键盘事件监听
+                editInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.confirmEdit(messageId);
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        this.cancelEdit(messageId);
+                    }
+                });
+            }
+        }, 100);
+    }
+
+    async confirmEdit(messageId) {
+        console.log('确认编辑消息:', messageId);
+        
+        const editInput = document.querySelector('.edit-input');
+        if (!editInput) {
+            console.error('找不到编辑输入框');
+            return;
+        }
+
+        const newContent = editInput.value.trim();
+        if (!newContent) {
+            this.uiManager.showError('消息内容不能为空');
+            return;
+        }
+
+        const message = this.chatManager.getMessageById(messageId);
+        if (!message) {
+            console.error('找不到要编辑的消息');
+            return;
+        }
+
+        try {
+            // 更新消息内容
+            message.content = newContent;
+            message.isEditing = false;
+            delete message.originalContent;
+
+            // 删除对应的AI回复（下一条assistant消息）
+            this.chatManager.removeSubsequentAssistantMessage(messageId);
+
+            // 更新UI显示编辑后的消息
+            this.uiManager.updateChat(this.chatManager.getMessages());
+
+            // 添加AI思考中的消息
+            const thinkingMessage = {
+                type: 'assistant',
+                content: '正在重新翻译...',
+                timestamp: new Date(),
+                isLoading: true,
+                id: Date.now() + Math.random()
+            };
+            this.chatManager.addMessage(thinkingMessage);
+            this.uiManager.updateChat(this.chatManager.getMessages());
+
+            // 重新翻译
+            const context = this.chatManager.getContext();
+            const translation = await this.apiService.translateText(newContent, context);
+
+            // 移除思考中的消息，添加真正的回复
+            this.chatManager.removeLastMessage();
+            this.chatManager.addMessage({
+                type: 'assistant',
+                content: translation,
+                timestamp: new Date(),
+                id: Date.now() + Math.random()
+            });
+
+            // 更新UI
+            this.uiManager.updateChat(this.chatManager.getMessages());
+
+            // 播放TTS（如果启用）
+            await this.ttsManager.playText(translation);
+
+        } catch (error) {
+            console.error('编辑消息失败:', error);
+            this.uiManager.showError('重新翻译失败，请重试');
+            
+            // 移除可能存在的loading消息
+            if (this.chatManager.getMessages().length > 0) {
+                const lastMessage = this.chatManager.getMessages()[this.chatManager.getMessages().length - 1];
+                if (lastMessage.isLoading) {
+                    this.chatManager.removeLastMessage();
+                    this.uiManager.updateChat(this.chatManager.getMessages());
+                }
+            }
+        }
+    }
+
+    cancelEdit(messageId) {
+        console.log('取消编辑消息:', messageId);
+        
+        const message = this.chatManager.getMessageById(messageId);
+        if (!message) {
+            console.error('找不到要编辑的消息');
+            return;
+        }
+
+        // 恢复原始内容
+        if (message.originalContent) {
+            message.content = message.originalContent;
+            delete message.originalContent;
+        }
+        
+        // 取消编辑状态
+        message.isEditing = false;
+        
+        // 更新UI
+        this.uiManager.updateChat(this.chatManager.getMessages());
+    }
 }
 
 // 音频录制器类
@@ -1502,8 +1641,7 @@ class APIService {
 1. 如果输入是中文，翻译成自然的日语
 2. 如果输入是日文，翻译成自然的中文
 3. 保持语气和语境的一致性
-4. 考虑旅游场景的表达习惯
-5. 只返回翻译结果，不要加额外说明
+4. 只返回翻译结果，不要加额外说明
 
 对话历史：
 ${contextText}
@@ -1777,6 +1915,25 @@ class ChatManager {
             await this.db.clearAll();
         }
     }
+
+    getMessageById(id) {
+        return this.conversations.find(message => message.id === id);
+    }
+
+    removeSubsequentAssistantMessage(userMessageId) {
+        // 找到用户消息的索引
+        const userMessageIndex = this.conversations.findIndex(message => message.id === userMessageId);
+        if (userMessageIndex === -1) return;
+
+        // 找到该用户消息后的第一个assistant消息并删除
+        for (let i = userMessageIndex + 1; i < this.conversations.length; i++) {
+            if (this.conversations[i].type === 'assistant') {
+                console.log('删除AI回复消息:', this.conversations[i].id);
+                this.conversations.splice(i, 1);
+                break;
+            }
+        }
+    }
 }
 
 // 设置管理类
@@ -1935,6 +2092,9 @@ class UIManager {
 
     renderMessagesWithTimeGroups(container, messages) {
         let lastTimeGroup = null;
+        
+        // 找到最新的用户消息ID
+        const latestUserMessageId = [...messages].reverse().find(msg => msg.type === 'user' && !msg.isLoading)?.id;
 
         messages.forEach(message => {
             const messageTime = new Date(message.timestamp);
@@ -1947,8 +2107,11 @@ class UIManager {
                 lastTimeGroup = timeGroup;
             }
 
+            // 判断是否为最新用户消息
+            const isLatestUser = message.id === latestUserMessageId;
+            
             // 添加消息
-            const messageElement = this.createMessageElement(message);
+            const messageElement = this.createMessageElement(message, isLatestUser);
             container.appendChild(messageElement);
         });
     }
@@ -1978,16 +2141,32 @@ class UIManager {
         return div;
     }
 
-    createMessageElement(message) {
+    createMessageElement(message, isLatestUser = false) {
         const div = document.createElement('div');
         div.className = `message ${message.type}`;
+        div.setAttribute('data-message-id', message.id);
         
         if (message.isLoading) {
             div.classList.add('loading');
         }
 
+        if (message.isEditing) {
+            div.classList.add('editing');
+        }
+
         let content;
-        if (message.isLoading) {
+        if (message.isEditing) {
+            // 编辑模式：显示输入框
+            content = `
+                <div class="edit-container">
+                    <input type="text" class="edit-input" value="${this.escapeForAttribute(message.content)}" />
+                    <div class="edit-actions">
+                        <button class="edit-confirm-btn" onclick="window.weTalk.confirmEdit('${message.id}')">✓</button>
+                        <button class="edit-cancel-btn" onclick="window.weTalk.cancelEdit('${message.id}')">✕</button>
+                    </div>
+                </div>
+            `;
+        } else if (message.isLoading) {
             if (message.type === 'user') {
                 content = `<span class="loading-dots">正在识别语音<span class="dots">...</span></span>`;
             } else {
@@ -1997,21 +2176,32 @@ class UIManager {
             content = this.escapeHtml(message.content);
         }
 
+        // 构建消息操作按钮
+        let actionButtons = '';
+        
         // 为assistant消息添加播放按钮
-        let playButton = '';
-        if (message.type === 'assistant' && !message.isLoading && message.content && message.content.trim()) {
-            playButton = `
-                <div class="message-actions">
-                    <button class="play-tts-btn" onclick="window.weTalk.playMessageTTS('${this.escapeForAttribute(message.content)}')" title="播放语音">
-                        <span class="play-icon">🔊</span>
-                    </button>
-                </div>
+        if (message.type === 'assistant' && !message.isLoading && !message.isEditing && message.content && message.content.trim()) {
+            actionButtons += `
+                <button class="play-tts-btn" onclick="window.weTalk.playMessageTTS('${this.escapeForAttribute(message.content)}')" title="播放语音">
+                    <span class="play-icon">🔊</span>
+                </button>
+            `;
+        }
+        
+        // 为最新的用户消息添加编辑按钮
+        if (message.type === 'user' && isLatestUser && !message.isLoading && !message.isEditing) {
+            actionButtons += `
+                <button class="edit-message-btn" onclick="window.weTalk.startEdit('${message.id}')" title="编辑消息">
+                    <span class="edit-icon">✏️</span>
+                </button>
             `;
         }
 
+        const actionsHtml = actionButtons ? `<div class="message-actions">${actionButtons}</div>` : '';
+
         div.innerHTML = `
             <div class="message-content">${content}</div>
-            ${playButton}
+            ${actionsHtml}
         `;
 
         return div;
