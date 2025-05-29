@@ -193,7 +193,7 @@ class WeTalk {
             // 初始化长按相关变量
             this.longPressTimer = null;
             this.isLongPressing = false;
-            this.longPressThreshold = 200; // 200ms长按阈值
+            this.longPressThreshold = 50; // 50ms长按阈值
             
             // 创建绑定的事件处理函数，确保可以正确移除
             this.boundHandleTouchMove = this.handleTouchMove.bind(this);
@@ -932,6 +932,8 @@ class AudioRecorder {
         this.permissionStatus = 'unknown'; // 'granted', 'denied', 'unknown'
         this.lastPermissionCheck = 0;
         this.permissionCacheTime = 5 * 60 * 1000; // 5分钟缓存
+        this.recordingStartTime = 0; // 录音开始时间
+        this.recordingTimer = null; // 录音计时器
     }
 
     // 检查权限状态（不申请权限）
@@ -1017,13 +1019,15 @@ class AudioRecorder {
 
     async startRecording() {
         try {
-            // 每次录音时获取新的音频流
+            // 每次录音时获取新的音频流 - 优化音频参数以提升效率
             this.stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
-                    sampleRate: 16000
+                    sampleRate: 8000,  // 降低采样率到8kHz，语音识别足够使用
+                    channelCount: 1,   // 单声道，减少文件大小
+                    sampleSize: 16     // 16位采样
                 } 
             });
             
@@ -1031,23 +1035,35 @@ class AudioRecorder {
             this.permissionStatus = 'granted';
             localStorage.setItem('wetalk_mic_permission', 'granted');
             
-            // 尝试使用更兼容的音频格式
-            let mimeType = 'audio/webm;codecs=opus';
-            if (!MediaRecorder.isTypeSupported(mimeType)) {
+            // 优化音频格式选择，优先使用最高效的格式
+            let mimeType = '';
+            let audioBitsPerSecond = 16000; // 16kbps，适合语音
+            
+            // 优先选择opus编码的webm格式（最高效）
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                mimeType = 'audio/webm;codecs=opus';
+            } else if (MediaRecorder.isTypeSupported('audio/webm')) {
                 mimeType = 'audio/webm';
-                if (!MediaRecorder.isTypeSupported(mimeType)) {
-                    mimeType = 'audio/mp4';
-                    if (!MediaRecorder.isTypeSupported(mimeType)) {
-                        mimeType = ''; // 使用默认格式
-                    }
-                }
+            } else if (MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')) {
+                mimeType = 'audio/mp4;codecs=mp4a.40.2';
+                audioBitsPerSecond = 32000; // MP4需要稍高的比特率
+            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                mimeType = 'audio/mp4';
+                audioBitsPerSecond = 32000;
             }
             
-            const options = mimeType ? { mimeType } : {};
+            const options = mimeType ? { 
+                mimeType, 
+                audioBitsPerSecond 
+            } : {};
+            
+            console.log('使用音频格式:', mimeType, '比特率:', audioBitsPerSecond);
+            
             this.mediaRecorder = new MediaRecorder(this.stream, options);
             
             this.audioChunks = [];
             this.isRecording = true;
+            this.recordingStartTime = Date.now(); // 记录开始时间
             
             this.mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -1057,12 +1073,8 @@ class AudioRecorder {
             
             this.mediaRecorder.start();
             
-            // 60秒后自动停止
-            setTimeout(() => {
-                if (this.isRecording) {
-                    this.stopRecording();
-                }
-            }, 60000);
+            // 启动录音时间计时器
+            this.startRecordingTimer();
             
         } catch (error) {
             // 如果权限被拒绝，更新状态
@@ -1085,6 +1097,11 @@ class AudioRecorder {
 
             this.mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                
+                // 计算录音时长并记录
+                const recordingDuration = (Date.now() - this.recordingStartTime) / 1000;
+                console.log(`录音完成，时长: ${recordingDuration.toFixed(1)}秒，文件大小: ${(audioBlob.size / 1024).toFixed(1)}KB`);
+                
                 this.cleanup(); // 立即清理资源
                 resolve(audioBlob);
             };
@@ -1108,6 +1125,38 @@ class AudioRecorder {
         }
         this.mediaRecorder = null;
         this.audioChunks = [];
+        this.stopRecordingTimer(); // 停止计时器
+    }
+
+    // 启动录音计时器
+    startRecordingTimer() {
+        this.recordingTimer = setInterval(() => {
+            if (this.isRecording) {
+                const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
+                this.updateRecordingTime(elapsed);
+            }
+        }, 100); // 每100ms更新一次
+    }
+
+    // 停止录音计时器
+    stopRecordingTimer() {
+        if (this.recordingTimer) {
+            clearInterval(this.recordingTimer);
+            this.recordingTimer = null;
+        }
+    }
+
+    // 更新录音时间显示
+    updateRecordingTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        const timeString = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        
+        // 更新UI显示
+        const recordingStatus = document.querySelector('.recording-status');
+        if (recordingStatus) {
+            recordingStatus.textContent = `🔴 录音中... ${timeString}`;
+        }
     }
 
     // 检查是否有权限（基于缓存状态）

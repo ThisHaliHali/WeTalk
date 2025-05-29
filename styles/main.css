@@ -501,7 +501,12 @@ body {
 }
 
 .recording-status {
-    display: none; /* 隐藏录音状态文字 */
+    display: block; /* 显示录音状态 */
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #FF3B30;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .recording-animation {
