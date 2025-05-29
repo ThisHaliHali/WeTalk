@@ -224,106 +224,6 @@ body {
     display: none;
 }
 
-/* 编辑消息按钮样式 */
-.edit-message-btn {
-    background-color: var(--secondary-color);
-    border: none;
-    cursor: pointer;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    transition: var(--transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 0.5rem;
-}
-
-.edit-message-btn:hover {
-    background-color: #E5E5EA;
-    transform: scale(1.05);
-}
-
-.edit-icon {
-    font-size: 0.8rem;
-}
-
-/* 编辑状态的消息样式 */
-.message.editing {
-    background-color: rgba(0, 122, 255, 0.05);
-    border: 1px dashed var(--primary-color);
-}
-
-.message.editing .message-content {
-    padding: 0;
-}
-
-/* 编辑容器样式 */
-.edit-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    width: 100%;
-}
-
-.edit-input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid var(--primary-color);
-    border-radius: 8px;
-    font-size: 1rem;
-    font-family: inherit;
-    outline: none;
-    transition: var(--transition);
-    background-color: white;
-    resize: none;
-}
-
-.edit-input:focus {
-    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
-}
-
-.edit-actions {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-}
-
-.edit-confirm-btn,
-.edit-cancel-btn {
-    width: 36px;
-    height: 36px;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    font-weight: bold;
-    transition: var(--transition);
-}
-
-.edit-confirm-btn {
-    background-color: var(--success-color);
-    color: white;
-}
-
-.edit-confirm-btn:hover {
-    background-color: #28A745;
-    transform: scale(1.05);
-}
-
-.edit-cancel-btn {
-    background-color: var(--text-secondary);
-    color: white;
-}
-
-.edit-cancel-btn:hover {
-    background-color: #6C6C70;
-    transform: scale(1.05);
-}
-
 /* Loading状态样式 */
 .message.loading {
     opacity: 0.8;
@@ -1243,4 +1143,43 @@ body {
 
 .switch-slider {
     display: none;
+}
+
+/* 消息行容器（包含编辑按钮和消息） */
+.message-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: 80%;
+    align-self: flex-end;
+    margin-left: auto;
+    margin-bottom: 0.5rem;
+    animation: fadeInUp 0.3s ease;
+}
+
+/* 编辑按钮 */
+.edit-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    font-size: 0.9rem;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.edit-btn:hover {
+    opacity: 1;
+    background: rgba(0, 122, 255, 0.1);
+    transform: scale(1.05);
+}
+
+.edit-btn:active {
+    transform: scale(0.95);
 } 
