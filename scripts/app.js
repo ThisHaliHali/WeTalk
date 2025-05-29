@@ -980,9 +980,10 @@ class WeTalk {
                     textInput.style.height = Math.min(scrollHeight, maxHeight) + 'px';
                 }
                 
-                // 聚焦并选中文本
+                // 聚焦到输入框，但不选中文本
                 textInput.focus();
-                textInput.select();
+                // 将光标移到文本末尾
+                textInput.setSelectionRange(textInput.value.length, textInput.value.length);
             }, 100);
             
             // 4. 更新发送按钮状态
