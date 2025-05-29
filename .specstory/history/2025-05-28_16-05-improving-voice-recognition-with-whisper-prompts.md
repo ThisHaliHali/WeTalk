@@ -1411,6 +1411,160 @@ venvbytedance@JCJGQ4Y6NM TalkBridge %
 
 ---
 
+```bash
+git add .
+```
+
+```
+venvbytedance@JCJGQ4Y6NM TalkBridge % 
+
+```
+
+---
+
+Model provided invalid arguments to terminal tool.
+
+---
+
+```bash
+git commit -m "优化智能语音识别纠错开关样式 - 重新设计开关UI，使用统一简洁的样式 - 优化设置面板中的开关布局和交互 - 简化HTML结构，提高代码可维护性 - 改进开关的视觉效果和用户体验 - 移除冗余的CSS样式，统一组件设计"
+```
+
+```
+[main 8c25e31] 优化智能语音识别纠错开关样式 - 重新设计开关UI，使用统一简洁的样式 - 优化设置面板中的开关布局
+和交互 - 简化HTML结构，提高代码可维护性 - 改进开关的视觉效果和用户体验 - 移除冗余的CSS样式，统一组件设计     7 files changed, 2997 insertions(+), 48 del
+etions(-)
+ create mode 100644 ".specstory/history/2025-05-28_15-16-\344\273\243\347\240\201\344\274\230\345\214\226\34
+4\270\216\346\216\250\351\200\201\345\210\260git\345\222\214vercel.md"
+ create mode 100644 .specstory/history/2025-05-28_16-05-improving-voice-recognition-with-whisper-prompts.md
+ create mode 100644 WHISPER_PROMPT_GUIDE.md
+
+```
+
+---
+
+```bash
+git push origin main
+```
+
+```
+venvbytedance@JCJGQ4Y6NM TalkBridge % git push origin main
+Enumerating objects: 22, done.
+Counting objects: 100% (22/22), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (11/11), done.
+Writing objects: 100% (13/13), 31.18 KiB | 10.39 MiB/s, done.
+Total 13 (delta 7), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (7/7), completed with 6 local objects.
+To https://github.com/ThisHaliHali/WeTalk.git
+   090abb5..8c25e31  main -> main
+venvbytedance@JCJGQ4Y6NM TalkBridge %
+```
+
+---
+
+现在让我检查是否有Vercel配置，然后部署到Vercel：
+
+---
+
+<details>
+            <summary>Listed current directory • **20** results</summary>
+        
+| Name |
+|-------|
+| 📁 `.git` |
+| 📄 `index.html` |
+| 📄 `WHISPER_PROMPT_GUIDE.md` |
+| 📄 `vercel.json` |
+| 📁 `.vercel` |
+| 📄 `.gitignore` |
+| 📄 `test.html` |
+| 📄 `README.md` |
+| 📄 `generate-icons.html` |
+| 📄 `pwa_voice_translator_design (1).md` |
+| 📄 `create-icons.py` |
+| 📄 `sw.js` |
+| 📄 `manifest.json` |
+| 📁 `icons` |
+| 📁 `venv` |
+| 📄 `netlify.toml` |
+| 📁 `scripts` |
+| 📁 `styles` |
+| 📁 `.specstory` |
+| 📄 `.cursorindexingignore` |
+
+</details>
+
+---
+
+```bash
+vercel --prod
+```
+
+```
+venvbytedance@JCJGQ4Y6NM TalkBridge % vercel --prod
+Vercel CLI 42.2.0
+🔍  Inspect: https://vercel.com/halis-projects-f7a67920/wetalk/BKEk5Gj75pgqkHMV9n42FVHwgUWM [2s]
+✅  Production: https://wetalk-blke5zrl7-halis-projects-f7a67920.vercel.app [2s]
+❗️  Due to `builds` existing in your configuration file, the Build and Development Settings defined in your 
+Project Settings will not apply. Learn More: https://vercel.link/unused-build-settings
+venvbytedance@JCJGQ4Y6NM TalkBridge %
+```
+
+---
+
+完美！代码已经成功推送到Git和部署到Vercel。
+
+## 🎉 部署完成总结
+
+### ✅ Git推送成功
+- **提交信息**: 优化智能语音识别纠错开关样式
+- **修改文件**: 7个文件，新增2997行，删除48行
+- **新增文件**: 
+  - `WHISPER_PROMPT_GUIDE.md` - 功能使用指南
+  - 历史记录文档
+
+### 🚀 Vercel部署成功
+- **生产环境URL**: https://wetalk-blke5zrl7-halis-projects-f7a67920.vercel.app
+- **检查URL**: https://vercel.com/halis-projects-f7a67920/wetalk/BKEk5Gj75pgqkHMV9n42FVHwgUWM
+- **部署时间**: 2秒
+
+### 🔧 本次优化内容
+1. **开关样式优化**:
+   - 重新设计了智能语音识别纠错开关
+   - 使用统一简洁的toggle样式
+   - 改进了视觉效果和交互体验
+
+2. **代码结构优化**:
+   - 简化了HTML结构
+   - 清理了冗余的CSS样式
+   - 提高了代码可维护性
+
+3. **功能完善**:
+   - 智能Whisper prompt语音识别纠错
+   - 上下文感知的词汇优化
+   - 中日文专有名词识别增强
+
+现在您可以访问生产环境URL来测试最新的功能！开关样式现在更加统一和美观了。
+
+---
+
+_**User**_
+
+帮我在录音的那个浮窗上也增加一下监听取消录音的事件
+
+---
+
+_**Assistant**_
+
+我来帮您在录音浮窗上增加监听取消录音的事件。让我先查看当前的录音浮窗结构和相关代码。
+
+---
+
+
+
+---
+
 
 
 ---

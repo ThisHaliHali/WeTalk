@@ -334,6 +334,19 @@ class WeTalk {
         } else {
             console.error('找不到closeSettings按钮');
         }
+
+        // 录音浮窗取消按钮事件
+        const cancelRecordingBtn = document.getElementById('cancelRecordingBtn');
+        if (cancelRecordingBtn) {
+            cancelRecordingBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('录音浮窗取消按钮被点击');
+                this.cancelRecording(e);
+            });
+        } else {
+            console.error('找不到cancelRecordingBtn按钮');
+        }
     }
 
     // 长按检测事件处理方法
@@ -519,22 +532,39 @@ class WeTalk {
     }
 
     cancelRecording(e) {
+        console.log('取消录音被调用');
+        
+        // 清除长按定时器
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+        
+        // 如果正在录音，停止录音
         if (this.audioRecorder.isRecording) {
             this.audioRecorder.cancelRecording();
-            this.uiManager.hideRecordingOverlay();
-            
-            const recordBtn = document.getElementById('recordBtn');
-            recordBtn.classList.remove('recording', 'keyboard-recording');
-            
-            // 移除触摸监听器
-            this.removeTouchMoveListeners();
-            
-            // 重置滑动状态
-            this.isSlideToCancel = false;
-            
-            // 显示取消提示
-            this.uiManager.showSuccess('录音已取消');
         }
+        
+        // 隐藏录音浮窗
+        this.uiManager.hideRecordingOverlay();
+        
+        // 重置录音按钮状态
+        const recordBtn = document.getElementById('recordBtn');
+        if (recordBtn) {
+            recordBtn.classList.remove('recording', 'keyboard-recording', 'pressing');
+        }
+        
+        // 移除触摸监听器
+        this.removeTouchMoveListeners();
+        
+        // 重置所有录音相关状态
+        this.isSlideToCancel = false;
+        this.isLongPressing = false;
+        this.isSpacePressed = false;
+        this.isRecordingWithKeyboard = false;
+        
+        // 显示取消提示
+        this.uiManager.showSuccess('录音已取消');
     }
 
     async processAudio(audioBlob) {
