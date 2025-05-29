@@ -1001,17 +1001,22 @@ class WeTalk {
         if (textInput && sendTextBtn) {
             // 自动调整textarea高度
             const autoResize = () => {
-                // 重置高度到最小值
+                // 如果内容为空或只有空白字符，直接设置为最小高度
+                if (textInput.value === '' || textInput.value.trim() === '') {
+                    textInput.style.height = '50px';
+                    return;
+                }
+                
+                // 重置高度到最小值以便正确计算scrollHeight
                 textInput.style.height = '50px';
                 
                 // 计算内容所需高度
                 const scrollHeight = textInput.scrollHeight;
                 const maxHeight = 200; // 与CSS中的max-height保持一致，改为200px
                 
-                // 设置新高度
-                if (scrollHeight > 50) {
-                    textInput.style.height = Math.min(scrollHeight, maxHeight) + 'px';
-                }
+                // 设置新高度，确保至少是最小高度
+                const newHeight = Math.max(50, Math.min(scrollHeight, maxHeight));
+                textInput.style.height = newHeight + 'px';
             };
             
             // 监听输入事件
