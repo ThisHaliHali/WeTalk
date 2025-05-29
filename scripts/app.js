@@ -194,7 +194,7 @@ class WeTalk {
             // 初始化长按相关变量
             this.longPressTimer = null;
             this.isLongPressing = false;
-            this.longPressThreshold = 0; // 0ms立即响应
+            this.longPressThreshold = 30; // 30ms长按阈值
             
             // 创建绑定的事件处理函数，确保可以正确移除
             this.boundHandleTouchMove = this.handleTouchMove.bind(this);
