@@ -221,21 +221,8 @@ class WeTalk {
         console.log('文字输入容器:', textInputContainer);
         console.log('文字输入容器类名:', textInputContainer ? textInputContainer.className : 'null');
         
-        if (textInput && sendTextBtn) {
-            textInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.sendTextMessage();
-                }
-            });
-            
-            textInput.addEventListener('input', (e) => {
-                const hasText = e.target.value.trim().length > 0;
-                sendTextBtn.disabled = !hasText;
-            });
-            
-            sendTextBtn.addEventListener('click', this.sendTextMessage.bind(this));
-        }
+        // 绑定文字输入相关事件
+        this.bindTextInputEvents();
         
         // 键盘事件支持
         this.isSpacePressed = false;
@@ -784,18 +771,26 @@ class WeTalk {
     async sendTextMessage() {
         const textInput = document.getElementById('textInput');
         const sendTextBtn = document.getElementById('sendTextBtn');
+        
+        if (!textInput || !sendTextBtn) {
+            return;
+        }
+        
         const text = textInput.value.trim();
+        if (!text) {
+            return;
+        }
         
-        if (!text) return;
-        
-        if (!this.settingsManager.getApiKey()) {
+        const apiKey = this.settingsManager.getApiKey();
+        if (!apiKey) {
             this.uiManager.showError('请先配置API密钥');
             return;
         }
         
         try {
-            // 清空输入框并禁用发送按钮
+            // 清空输入框、重置高度并禁用发送按钮
             textInput.value = '';
+            textInput.style.height = '50px'; // 重置高度
             sendTextBtn.disabled = true;
             
             // 添加用户消息
@@ -971,8 +966,21 @@ class WeTalk {
         if (textInput) {
             textInput.value = content;
             
-            // 3. 聚焦并选中文本
+            // 3. 自动调整高度
             setTimeout(() => {
+                // 重置高度到最小值
+                textInput.style.height = '50px';
+                
+                // 计算内容所需高度
+                const scrollHeight = textInput.scrollHeight;
+                const maxHeight = 200; // 改为200px
+                
+                // 设置新高度
+                if (scrollHeight > 50) {
+                    textInput.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+                }
+                
+                // 聚焦并选中文本
                 textInput.focus();
                 textInput.select();
             }, 100);
@@ -982,6 +990,60 @@ class WeTalk {
             if (sendTextBtn) {
                 sendTextBtn.disabled = false;
             }
+        }
+    }
+
+    bindTextInputEvents() {
+        const textInput = document.getElementById('textInput');
+        const sendTextBtn = document.getElementById('sendTextBtn');
+        
+        if (textInput && sendTextBtn) {
+            // 自动调整textarea高度
+            const autoResize = () => {
+                // 重置高度到最小值
+                textInput.style.height = '50px';
+                
+                // 计算内容所需高度
+                const scrollHeight = textInput.scrollHeight;
+                const maxHeight = 200; // 与CSS中的max-height保持一致，改为200px
+                
+                // 设置新高度
+                if (scrollHeight > 50) {
+                    textInput.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+                }
+            };
+            
+            // 监听输入事件
+            textInput.addEventListener('input', (e) => {
+                autoResize();
+                
+                // 更新发送按钮状态
+                const hasContent = e.target.value.trim().length > 0;
+                sendTextBtn.disabled = !hasContent;
+            });
+            
+            // 监听粘贴事件
+            textInput.addEventListener('paste', () => {
+                setTimeout(autoResize, 0); // 延迟执行，等待粘贴内容完成
+            });
+            
+            // 监听按键事件
+            textInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!sendTextBtn.disabled) {
+                        this.sendTextMessage();
+                    }
+                }
+                // Shift+Enter 允许换行
+            });
+            
+            // 发送按钮点击事件
+            sendTextBtn.addEventListener('click', () => {
+                if (!sendTextBtn.disabled) {
+                    this.sendTextMessage();
+                }
+            });
         }
     }
 }

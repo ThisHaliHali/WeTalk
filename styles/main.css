@@ -295,7 +295,7 @@ body {
     border-top: 1px solid var(--border-color);
     padding: 1.5rem 1rem 3.5rem 1rem;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 1rem;
     z-index: 100;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
@@ -391,23 +391,28 @@ body {
 /* 文字输入容器 */
 .text-input-container {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 0.5rem;
     width: 100%;
-    height: 50px;
+    min-height: 50px;
     transition: all 0.3s ease;
 }
 
 .text-input {
     flex: 1;
-    height: 100%;
-    padding: 0 1rem;
+    min-height: 50px;
+    max-height: 200px;
+    padding: 14px 1rem;
     border: 2px solid var(--border-color);
     border-radius: 25px;
     font-size: 1rem;
+    line-height: 1.4;
     outline: none;
     transition: var(--transition);
     background-color: var(--background-color);
+    resize: none;
+    overflow-y: auto;
+    font-family: inherit;
 }
 
 .text-input:focus {
