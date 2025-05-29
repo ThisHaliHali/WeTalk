@@ -10,6 +10,7 @@ class WeTalk {
         this.ttsManager = new TTSManager(this.apiService, this.settingsManager);
         this.isVoiceMode = true; // 默认语音模式
         this.storageKey = 'wetalk_settings';
+        this.isRecordingStarting = false; // 添加录音启动状态跟踪
         
         // 不在构造函数中调用init，而是在DOMContentLoaded事件中调用
     }
@@ -193,7 +194,7 @@ class WeTalk {
             // 初始化长按相关变量
             this.longPressTimer = null;
             this.isLongPressing = false;
-            this.longPressThreshold = 50; // 50ms长按阈值
+            this.longPressThreshold = 0; // 0ms立即响应
             
             // 创建绑定的事件处理函数，确保可以正确移除
             this.boundHandleTouchMove = this.handleTouchMove.bind(this);
@@ -423,7 +424,9 @@ class WeTalk {
         // API密钥检查已在handleRecordStart中进行，这里不需要重复检查
 
         try {
+            this.isRecordingStarting = true; // 设置录音启动状态
             await this.audioRecorder.startRecording();
+            this.isRecordingStarting = false; // 录音启动完成
             this.uiManager.showRecordingOverlay();
             
             // 重置为初始状态
@@ -446,6 +449,7 @@ class WeTalk {
                 this.addTouchMoveListeners();
             }
         } catch (error) {
+            this.isRecordingStarting = false; // 录音启动失败，重置状态
             this.uiManager.showError('无法访问麦克风，请检查权限设置');
         }
     }
@@ -501,6 +505,25 @@ class WeTalk {
     async stopRecording(e) {
         e.preventDefault();
         
+        // 如果录音正在启动中，等待一小段时间再检查
+        if (this.isRecordingStarting) {
+            console.log('录音启动中，等待完成...');
+            // 等待录音启动完成，最多等待500ms
+            let waitCount = 0;
+            while (this.isRecordingStarting && waitCount < 50) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+                waitCount++;
+            }
+        }
+        
+        // 检查是否真的在录音，如果不在录音状态则直接返回
+        if (!this.audioRecorder.isRecording && !this.isRecordingStarting) {
+            console.log('录音未启动或已停止，取消操作');
+            this.uiManager.hideRecordingOverlay();
+            this.resetRecordingState();
+            return;
+        }
+        
         if (!this.audioRecorder.isRecording) return;
 
         // 移除触摸监听器
@@ -524,6 +547,16 @@ class WeTalk {
             this.isSlideToCancel = false;
             
             if (audioBlob && audioBlob.size > 0) {
+                // 检查录音时长
+                const recordingDuration = (Date.now() - this.audioRecorder.recordingStartTime) / 1000;
+                console.log(`录音时长: ${recordingDuration.toFixed(3)}秒`);
+                
+                if (recordingDuration < 0.5) { // 小于500ms
+                    console.log('录音时间太短，已取消处理');
+                    this.uiManager.showError('录音时间太短，请重新录制 / 録音時間が短すぎます、再録音してください');
+                    return;
+                }
+                
                 await this.processAudio(audioBlob);
             }
         } catch (error) {
@@ -548,18 +581,8 @@ class WeTalk {
         // 隐藏录音浮窗
         this.uiManager.hideRecordingOverlay();
         
-        // 重置录音按钮状态
-        const recordBtn = document.getElementById('recordBtn');
-        if (recordBtn) {
-            recordBtn.classList.remove('recording', 'keyboard-recording', 'pressing');
-        }
-        
-        // 移除触摸监听器
-        this.removeTouchMoveListeners();
-        
         // 重置所有录音相关状态
-        this.isSlideToCancel = false;
-        this.isLongPressing = false;
+        this.resetRecordingState();
         this.isSpacePressed = false;
         this.isRecordingWithKeyboard = false;
         
@@ -920,6 +943,22 @@ class WeTalk {
             });
         }
     }
+
+    resetRecordingState() {
+        // 重置所有录音相关状态
+        this.isSlideToCancel = false;
+        this.isLongPressing = false;
+        this.isRecordingStarting = false;
+        
+        // 重置录音按钮状态
+        const recordBtn = document.getElementById('recordBtn');
+        if (recordBtn) {
+            recordBtn.classList.remove('recording', 'keyboard-recording', 'pressing');
+        }
+        
+        // 移除触摸监听器
+        this.removeTouchMoveListeners();
+    }
 }
 
 // 音频录制器类
@@ -1233,7 +1272,7 @@ class APIService {
             throw new Error('音频文件过大，请录制较短的音频');
         }
 
-        if (audioBlob.size < 1000) {
+        if (audioBlob.size < 3000) {
             throw new Error('音频文件过小，请重新录制');
         }
 
