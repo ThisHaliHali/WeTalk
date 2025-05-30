@@ -1865,6 +1865,14 @@ class ChatManager {
                 console.error('保存对话失败:', error);
             });
         }
+
+        // 添加消息后滚动到底部
+        setTimeout(() => {
+            const chatContainer = document.getElementById('chatContainer');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }, 100);
     }
 
     removeLastMessage() {
