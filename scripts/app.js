@@ -118,9 +118,12 @@ class WeTalk {
             const messages = this.chatManager.getMessages();
             if (messages.length > 0) {
                 this.uiManager.updateChat(messages);
-                // 加载历史消息后也要滚动到底部
+                // 加载历史消息后滚动到底部
                 setTimeout(() => {
-                    this.uiManager.scrollToBottom();
+                    const chatContainer = document.getElementById('chatContainer');
+                    if (chatContainer) {
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
                 }, 100);
             }
         } catch (error) {
